@@ -1,0 +1,4 @@
+     FILE    MEMORY      LOAD      %M  NAME
+   18.5Ki    3.04Ki    1.63Ki  100.0%  TOTAL
+--- stderr
+bloui-cli: stage 2 (split) failed: unknown dimension 'nope'

@@ -1,0 +1,6 @@
+     FILE    MEMORY      LOAD      %M  segment
+   3.11Ki    7.16Ki    3.11Ki  100.0%  TOTAL
+      644    4.67Ki       644   65.3%  ├─ LOAD #5 [RW-]
+   1.73Ki    1.73Ki    1.73Ki   24.1%  ├─ LOAD #2 [R--]
+      513       513       513    7.0%  ├─ LOAD #3 [R-X]
+      264       264       264    3.6%  └─ LOAD #4 [R--]

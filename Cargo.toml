@@ -1,0 +1,31 @@
+[package]
+name = "bloui"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "GPL-2.0-only"
+description = "Size analyzer for ELF files, with a tree list and a treemap"
+default-run = "bloui-cli"
+
+[features]
+default = ["gui"]
+gui = []
+
+[dependencies]
+clap = { version = "4.6", features = ["derive"] }
+memmap2 = "0.9"
+object = { version = "0.40", default-features = false, features = ["std", "read_core", "elf"] }
+regex = "1.13"
+serde = { version = "1.0", features = ["derive"] }
+smallvec = "1.15"
+thiserror = "2.0"
+toml = "1.1"
+
+[[bin]]
+name = "bloui"
+path = "src/bin/bloui/main.rs"
+required-features = ["gui"]
+
+[[bin]]
+name = "bloui-cli"
+path = "src/bin/bloui-cli/main.rs"

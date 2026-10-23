@@ -1,0 +1,22 @@
+Pipeline (memory):
+   1. open-file              0 → 3.04Ki      +3.04Ki  ok
+   2. filter-label      3.04Ki → 3.04Ki           +0  ok
+   3. split             3.04Ki → 3.04Ki           +0  ok
+   4. split             3.04Ki → 3.04Ki           +0  ok
+
+     FILE    MEMORY      LOAD      %M  segment › category
+   11.3Ki    3.04Ki    1.63Ki  100.0%  TOTAL
+   1.62Ki    1.62Ki    1.62Ki   53.4%  ├─ LOAD #1 [R-X]
+   1.29Ki    1.29Ki    1.29Ki   42.5%  │  ├─ code
+      332       332       332   10.7%  │  ├─ rodata
+        8         8         8    0.3%  │  └─ unwind
+        0    1.00Ki         0   33.1%  ├─ LOAD #3 [RW-]
+        0    1.00Ki         0   33.1%  │  └─ bss
+        8       420         8   13.5%  ├─ LOAD #2 [RW-]
+        0       412         0   13.3%  │  ├─ bss
+        8         8         8    0.3%  │  └─ data
+   9.71Ki         0         0    0.0%  └─ [no segment]
+   6.21Ki         0         0    0.0%     ├─ [unmapped]
+   1.04Ki         0         0    0.0%     ├─ headers
+      116         0         0    0.0%     ├─ meta
+   2.36Ki         0         0    0.0%     └─ symtab

@@ -1,0 +1,14 @@
+     FILE    MEMORY      LOAD      %M  section › symbol
+   1.63Ki    1.63Ki    1.63Ki  100.0%  TOTAL
+   1.29Ki    1.29Ki    1.29Ki   79.1%  ├─ .text
+      784       784       784   47.0%  │  ├─ __udivmoddi4
+      136       136       136    8.2%  │  ├─ main
+       76        76        76    4.6%  │  ├─ uart_read
+      324       324       324   19.4%  │  └─ [12 more]
+      172       172       172   10.3%  ├─ .rodata
+      128       128       128    7.7%  │  ├─ crc_table
+       27        27        27    1.6%  │  ├─ banner
+       17        17        17    1.0%  │  └─ digits.0
+      160       160       160    9.6%  ├─ .isr_vector
+      160       160       160    9.6%  │  └─ vector_table
+       16        16        16    1.0%  └─ [2 more]

@@ -1,0 +1,13 @@
+# Flash usage of the test firmware, by section.
+
+[[stage]]
+id = "open-file"
+path = "cortexm/fw.elf"
+
+[[stage]]
+id = "filter-space"
+keep = "load"
+
+[[stage]]
+id = "split"
+dimension = "section"

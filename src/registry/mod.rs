@@ -1,0 +1,85 @@
+// SPDX-License-Identifier: GPL-2.0-only
+//! Lists of all readers, dimensions and stages.
+
+use crate::dimension::{Dimension, DimensionFactory};
+use crate::model::Availability;
+use crate::param::DimRef;
+use crate::pipeline::{PipelineCtx, PipelineState, Stage, StageConfig, StageFactory};
+use crate::reader::Reader;
+use crate::{Error, Result};
+
+pub struct Registry {
+    pub readers: Vec<Box<dyn Reader>>,
+    pub dimensions: Vec<Box<dyn DimensionFactory>>,
+    pub stages: Vec<Box<dyn StageFactory>>,
+}
+
+/// A created dimension, with its cache key.
+pub struct DimHandle {
+    pub id: String,
+    pub name: &'static str,
+    /// Dimension id plus resolved parameters.
+    pub key: String,
+    pub dim: Box<dyn Dimension>,
+}
+
+impl DimHandle {
+    /// Available when it is for at least one input binary.
+    pub fn availability(&self, ctx: &PipelineCtx, input: &PipelineState) -> Availability {
+        let Some(factory) = ctx.registry.dimension(&self.id) else {
+            return Availability::Unavailable(format!("unknown dimension '{}'", self.id));
+        };
+        let mut why = None;
+        for bin in &input.binaries {
+            match factory.availability(bin) {
+                Availability::Available => return Availability::Available,
+                Availability::Unavailable(w) => why = Some(w),
+            }
+        }
+        match why {
+            Some(w) => Availability::Unavailable(w),
+            None => Availability::Available,
+        }
+    }
+}
+
+impl Registry {
+    pub fn builtin() -> Self {
+        Registry {
+            readers: vec![Box::new(crate::reader::elf::ElfReader)],
+            dimensions: crate::dimension::builtin::all(),
+            stages: crate::pipeline::builtin::all(),
+        }
+    }
+
+    pub fn dimension(&self, id: &str) -> Option<&dyn DimensionFactory> {
+        self.dimensions.iter().find(|d| d.id() == id).map(|d| &**d)
+    }
+
+    pub fn stage(&self, id: &str) -> Option<&dyn StageFactory> {
+        self.stages.iter().find(|s| s.id() == id).map(|s| &**s)
+    }
+
+    pub fn create_dimension(&self, r: &DimRef) -> Result<DimHandle> {
+        let factory = self.dimension(&r.id).ok_or_else(|| Error::Unknown {
+            kind: "dimension",
+            id: r.id.clone(),
+        })?;
+        let params = r.params.resolve(&factory.params())?;
+        Ok(DimHandle {
+            id: r.id.clone(),
+            name: factory.name(),
+            key: format!("{}{}", r.id, params.canonical()),
+            dim: factory.create(&params)?,
+        })
+    }
+
+    pub fn create_stage(&self, config: &StageConfig) -> Result<Box<dyn Stage>> {
+        let factory = self.stage(&config.id).ok_or_else(|| Error::Unknown {
+            kind: "stage",
+            id: config.id.clone(),
+        })?;
+        let params = config.params.resolve(&factory.params())?;
+        factory.create(&params, self)
+    }
+}

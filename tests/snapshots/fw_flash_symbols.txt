@@ -1,0 +1,20 @@
+     FILE    MEMORY      LOAD      %L  section › symbol
+   1.63Ki    1.63Ki    1.63Ki  100.0%  TOTAL
+   1.29Ki    1.29Ki    1.29Ki   79.1%  ├─ .text
+      784       784       784   47.0%  │  ├─ __udivmoddi4
+      136       136       136    8.2%  │  ├─ main
+       76        76        76    4.6%  │  ├─ uart_read
+       74        74        74    4.4%  │  ├─ [.text]
+       44        44        44    2.6%  │  ├─ uart_put_hex
+      206       206       206   12.4%  │  └─ [10 more]
+      172       172       172   10.3%  ├─ .rodata
+      128       128       128    7.7%  │  ├─ crc_table
+       27        27        27    1.6%  │  ├─ banner
+       17        17        17    1.0%  │  └─ digits.0
+      160       160       160    9.6%  ├─ .isr_vector
+      160       160       160    9.6%  │  └─ vector_table
+        8         8         8    0.5%  ├─ .ARM.exidx
+        8         8         8    0.5%  │  └─ [.ARM.exidx]
+        8         8         8    0.5%  └─ .data
+        4         4         4    0.2%     ├─ boot_count
+        4         4         4    0.2%     └─ system_core_clock

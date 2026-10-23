@@ -1,0 +1,27 @@
+     FILE    MEMORY      LOAD      %M  section
+    18976      3108      1668  100.0%  TOTAL
+     1320      1320      1320   42.5%  ├─ .text
+        0      1028         0   33.1%  ├─ .stack
+        0       412         0   13.3%  ├─ .bss
+      172       172       172    5.5%  ├─ .rodata
+      160       160       160    5.1%  ├─ .isr_vector
+        8         8         8    0.3%  ├─ .ARM.exidx
+        8         8         8    0.3%  ├─ .data
+       47         0         0    0.0%  ├─ .ARM.attributes
+       69         0         0    0.0%  ├─ .comment
+     1462         0         0    0.0%  ├─ .debug_abbrev
+      216         0         0    0.0%  ├─ .debug_aranges
+      408         0         0    0.0%  ├─ .debug_frame
+     2089         0         0    0.0%  ├─ .debug_info
+     1594         0         0    0.0%  ├─ .debug_line
+      203         0         0    0.0%  ├─ .debug_line_str
+      492         0         0    0.0%  ├─ .debug_loclists
+      225         0         0    0.0%  ├─ .debug_rnglists
+      672         0         0    0.0%  ├─ .debug_str
+      232         0         0    0.0%  ├─ .shstrtab
+      502         0         0    0.0%  ├─ .strtab
+     1680         0         0    0.0%  ├─ .symtab
+       52         0         0    0.0%  ├─ [ELF header]
+     6357         0         0    0.0%  ├─ [no section]
+      128         0         0    0.0%  ├─ [program headers]
+      880         0         0    0.0%  └─ [section headers]

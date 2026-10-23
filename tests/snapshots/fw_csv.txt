@@ -1,0 +1,30 @@
+section,symbol,file,memory,load
+.text,__udivmoddi4,784,784,784
+.text,main,136,136,136
+.text,uart_read,76,76,76
+.text,[no symbol],74,74,74
+.text,uart_put_hex,44,44,44
+.text,Reset_Handler,42,42,42
+.text,USART1_IRQHandler,36,36,36
+.text,gpio_toggle,28,28,28
+.text,uart_puts,28,28,28
+.text,gpio_init,20,20,20
+.text,uart_init,20,20,20
+.text,SysTick_Handler,16,16,16
+.text,clock_init,12,12,12
+.text,HardFault_Handler,2,2,2
+.text,__aeabi_idiv0,2,2,2
+.stack,[no symbol],0,1028,0
+.bss,scratch,0,256,0
+.bss,rx_buffer,0,128,0
+.bss,gpio_state,0,16,0
+.bss,rx_head,0,4,0
+.bss,rx_tail,0,4,0
+.bss,ticks,0,4,0
+.rodata,crc_table,128,128,128
+.rodata,banner,27,27,27
+.rodata,digits.0,17,17,17
+.isr_vector,vector_table,160,160,160
+.ARM.exidx,[no symbol],8,8,8
+.data,boot_count,4,4,4
+.data,system_core_clock,4,4,4
