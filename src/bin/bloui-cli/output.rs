@@ -183,6 +183,9 @@ pub fn stats(out: &mut String, pipeline: &Pipeline, reports: &[StageReport], o: 
             o.size(output),
             delta
         );
+        for note in &r.notes {
+            let _ = writeln!(out, "      {note}");
+        }
     }
     out.push('\n');
 }

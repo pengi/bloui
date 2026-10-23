@@ -17,6 +17,8 @@ pub struct Registry {
 /// A created dimension, with its cache key.
 pub struct DimHandle {
     pub id: String,
+    /// The dimension with its resolved parameters.
+    pub dim_ref: DimRef,
     pub name: &'static str,
     /// Dimension id plus resolved parameters.
     pub key: String,
@@ -68,6 +70,10 @@ impl Registry {
         let params = r.params.resolve(&factory.params())?;
         Ok(DimHandle {
             id: r.id.clone(),
+            dim_ref: DimRef {
+                id: r.id.clone(),
+                params: params.clone(),
+            },
             name: factory.name(),
             key: format!("{}{}", r.id, params.canonical()),
             dim: factory.create(&params)?,

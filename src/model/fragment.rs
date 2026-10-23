@@ -2,6 +2,7 @@
 //! Fragments: the pieces of bytes that flow through the pipeline.
 
 use super::{BinaryId, Chunk, Label, Sizes, Span};
+use crate::param::DimRef;
 use smallvec::SmallVec;
 
 /// A run of bytes of one binary, within one chunk, with one label per tree
@@ -50,12 +51,12 @@ impl Fragment {
 }
 
 /// Describes one tree level.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct LevelInfo {
     /// Display name, e.g. "section".
     pub name: String,
-    /// The dimension that made it.
-    pub dimension: String,
+    /// The dimension that made it, with its parameters.
+    pub dim: DimRef,
 }
 
 /// The set of fragments passed from stage to stage.

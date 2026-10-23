@@ -88,7 +88,8 @@ fn cortex_m_chunks() {
         .filter(|c| c.is_memory())
         .map(|c| c.len())
         .sum();
-    assert_eq!(memory, 0x67c + 0x1a4 + 0x404);
+    // The .data image in flash and its copy in RAM both take memory.
+    assert_eq!(memory, 0x67c + 8 + 0x1a4 + 0x404);
 }
 
 #[test]
@@ -114,6 +115,12 @@ fn host_elf() {
 #[test]
 fn not_an_elf() {
     let reg = bloui::registry::Registry::builtin();
-    let err = bloui::reader::read_file(&reg.readers, &fixture("cortexm/fw.ld"), None, "x".into());
+    let err = bloui::reader::read_file(
+        &reg.readers,
+        &fixture("cortexm/fw.ld"),
+        None,
+        "x".into(),
+        Default::default(),
+    );
     assert!(err.is_err());
 }

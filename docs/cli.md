@@ -17,6 +17,9 @@ the stages given as options, **in command-line order**:
 | `--include DIM=REGEX` | `filter-label`, keep matching bytes |
 | `--exclude DIM=REGEX` | `filter-label`, remove matching bytes |
 | `-k, --keep file\|memory\|load` | `filter-space` |
+| `--map FILE` | `linker-map` for the last input (a map next to the input is attached anyway) |
+| `--region NAME:ORIGIN:LENGTH` | `memory-regions`; repeat for more, they form one stage |
+| `--free` | `free-space` |
 | `-S, --stage 'ID K=V ..'` | any stage, see below |
 
 Output options:
@@ -33,7 +36,8 @@ Output options:
 | `--list` | list all stages and dimensions with their parameters |
 
 If a stage fails, `bloui-cli` prints the error, shows the result without that
-stage, and exits with status 1.
+stage, and exits with status 1. Warnings (a linker map that doesn't match)
+go to stderr; `--stats` also shows the other notes ("attached fw.map").
 
 ## Generic stages
 
@@ -65,6 +69,16 @@ bloui-cli -i fw.elf --exclude 'section=^\.debug' -s segment -s category
 
 # Everything in the file, exact sizes.
 bloui-cli -i fw.elf -s section -m file --bytes -n 0
+
+# How full are FLASH and RAM, and what's in them by object file.
+bloui-cli -i fw.elf -s memory-region --free -s object-file -d 2
+
+# Regions by hand, when there's no map.
+bloui-cli -i fw.elf --region FLASH:0x08000000:64K --region RAM:0x20000000:16K \
+    -s memory-region --free
+
+# Flash usage per object file and input section.
+bloui-cli -i fw.elf -k load -s object-file -s input-section -m load
 
 # Two files side by side.
 bloui-cli -i old.elf -i new.elf -s file -s section

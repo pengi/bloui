@@ -14,8 +14,41 @@ Loads a binary and adds all its bytes.
 | `path` | | the file; relative paths are relative to the project file |
 | `name` | file name | name shown in the tree (`file` dimension) |
 | `reader` | `auto` | `auto` or `elf` |
+| `map` | `auto` | `auto`: attach `fw.map` or `fw.elf.map` next to `fw.elf` if there is one; `off` |
+| `load_copies` | `true` | split bytes whose load and runtime addresses differ into a load image and a runtime copy (see [Concepts](concepts.md#load-images-and-runtime-copies)) |
 
-Levels split before this stage get `[not split]` for this file's bytes.
+Levels split before this stage are applied to the new file's bytes too.
+Filters before it are not.
+
+### `linker-map` (attach)
+
+Attaches a GNU ld map file to an input. Fails if the map doesn't match the
+binary.
+
+| Parameter | Default | Meaning |
+|-----------|---------|---------|
+| `path` | next to the input | the map file |
+| `binary` | last input | the input's name |
+
+### `memory-regions` (attach)
+
+Sets memory regions by hand. They replace the linker map's.
+
+| Parameter | Default | Meaning |
+|-----------|---------|---------|
+| `regions` | | table of `name`, `origin`, `length`, `attrs`; on the command line, `NAME:ORIGIN:LENGTH` rows |
+| `binary` | all inputs | the input's name |
+
+### `free-space` (add)
+
+Adds the unused part of each memory region as `[free]` bytes (in the
+`memory` metric). Used means taken by anything at its runtime or load
+address.
+
+| Parameter | Default | Meaning |
+|-----------|---------|---------|
+| `regions` | all | region names |
+| `binary` | all inputs | the input's name |
 
 ### `split` (split)
 
@@ -60,6 +93,21 @@ Keeps bytes by where they are.
 | `section` | output section; also `[ELF header]`, `[program headers]`, `[section headers]` | `[no section]` (padding) |
 | `category` | `code`, `rodata`, `data`, `bss`, `unwind`, `debug`, `symtab`, `reloc`, `meta`, `headers` | `[unmapped]` |
 | `symbol` | symbol name; the smallest symbol wins where symbols overlap | `[<section>]`, or `[no symbol]` with `fallback=none` |
+| `memory-region` | memory region, from the linker map or a `memory-regions` stage | `[no region]` |
+| `object-file` | object file from the linker map; archive members as `libhal.a` › `gpio.o` | `[<section>]`, `[fill]` for padding |
+| `input-section` | input section from the linker map, like `.text.uart_init` | `[<section>]`, `[fill]` for padding |
+
+Parameters:
+
+- `symbol`: `fallback` = `section` or `none`.
+- `memory-region`: `by` = `auto` (runtime address, or load address for load
+  images), `vma` or `lma`.
+- `object-file`: `archives` = `nest` (`libhal.a` › `gpio.o`), `flat`
+  (`libhal.a(gpio.o)`) or `archive` (`libhal.a` only); `paths` = `short`
+  (file names) or `full` (as in the map).
+
+`memory-region`, `object-file` and `input-section` are unavailable (the
+stage is skipped) for inputs without a linker map or memory regions.
 
 Categories come from the section type and flags: `unwind` is `.ARM.exidx`,
 `.ARM.extab`, `.eh_frame*` and `.gcc_except_table`; `debug` is `.debug*`,

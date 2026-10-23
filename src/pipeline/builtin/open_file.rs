@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-only
-use crate::model::{BinaryId, Fragment, Label};
+use super::attach_linkmap;
+use crate::model::{BinaryId, Fragment};
 use crate::param::{ParamSpec, ParamValues};
 use crate::pipeline::{PipelineCtx, PipelineState, Stage, StageFactory, StageKind};
+use crate::reader::ReadOptions;
 use crate::registry::Registry;
 use crate::{Error, Result};
 use std::path::PathBuf;
@@ -26,6 +28,21 @@ impl StageFactory for OpenFile {
             ParamSpec::path("path", "File"),
             ParamSpec::text("name", "Name", "").help("Shown in the tree; the file name if empty"),
             ParamSpec::choice("reader", "Format", &[("auto", "Detect"), ("elf", "ELF")]),
+            ParamSpec::choice(
+                "map",
+                "Linker map",
+                &[
+                    (
+                        "auto",
+                        "Attach fw.map or fw.elf.map if it is next to fw.elf",
+                    ),
+                    ("off", "Don't look for one"),
+                ],
+            ),
+            ParamSpec::bool("load_copies", "Split load copies", true).help(
+                "Count bytes whose load address differs from their runtime address \
+                 (.data) both where they are loaded from and where they run",
+            ),
         ]
     }
     fn create(&self, params: &ParamValues, _registry: &Registry) -> Result<Box<dyn Stage>> {
@@ -44,7 +61,15 @@ impl StageFactory for OpenFile {
             "auto" => None,
             r => Some(r.to_owned()),
         };
-        Ok(Box::new(Open { path, name, reader }))
+        Ok(Box::new(Open {
+            path,
+            name,
+            reader,
+            auto_map: params.text("map") == "auto",
+            opts: ReadOptions {
+                split_copies: params.bool("load_copies"),
+            },
+        }))
     }
 }
 
@@ -52,22 +77,37 @@ struct Open {
     path: PathBuf,
     name: String,
     reader: Option<String>,
+    auto_map: bool,
+    opts: ReadOptions,
 }
 
 impl Stage for Open {
     fn apply(&self, ctx: &mut PipelineCtx, mut state: PipelineState) -> Result<PipelineState> {
         let path = ctx.resolve_path(&self.path);
-        let bin = ctx.open_binary(&path, self.reader.as_deref(), &self.name)?;
-        let id = BinaryId(state.binaries.len() as u32);
-        // Levels split before this file was added don't apply to it.
-        let unsplit = Label::single(ctx.interner.intern("[not split]"));
-        for (i, chunk) in bin.chunks.chunks().iter().enumerate() {
-            let mut f = Fragment::new(id, i, chunk, chunk.unified);
-            f.labels
-                .extend(state.set.levels.iter().map(|_| unsplit.clone()));
-            state.set.fragments.push(f);
+        let mut bin = ctx.open_binary(&path, self.reader.as_deref(), &self.name, self.opts)?;
+        if self.auto_map
+            && let Some(map) = crate::linkmap::find_next_to(&path)
+        {
+            match attach_linkmap(ctx, &bin, &map) {
+                Ok(b) => {
+                    ctx.note(format!("attached {}", map.display()));
+                    bin = b;
+                }
+                Err(e) => ctx.warn(format!("linker map not attached: {e}")),
+            }
         }
+        let id = BinaryId(state.binaries.len() as u32);
+        let fragments = bin
+            .chunks
+            .chunks()
+            .iter()
+            .enumerate()
+            .map(|(i, chunk)| Fragment::new(id, i, chunk, chunk.unified))
+            .collect();
         state.binaries.push(bin);
+        // Levels split before this file was added are applied to it too.
+        let fragments = ctx.apply_levels(&state, fragments)?;
+        state.set.fragments.extend(fragments);
         Ok(state)
     }
 }

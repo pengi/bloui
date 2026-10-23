@@ -15,9 +15,13 @@ fn split_order_keeps_totals() {
     for fixture in [FW, HOST] {
         let base = total(vec![open(fixture)]);
         assert_eq!(base.file, read(fixture).data.len() as u64);
-        let dims = ["file", "segment", "section", "category", "symbol"];
-        for a in dims {
-            for b in dims {
+        let mut dims = vec!["file", "segment", "section", "category", "symbol"];
+        if fixture == FW {
+            // Need the linker map.
+            dims.extend(["memory-region", "object-file", "input-section"]);
+        }
+        for &a in &dims {
+            for &b in &dims {
                 let t = total(vec![open(fixture), split(a), split(b)]);
                 assert_eq!(t, base, "{fixture}: {a} then {b}");
             }
@@ -130,7 +134,8 @@ fn flash_and_ram_by_space() {
         Metric::Memory,
     );
     assert_eq!(t.root().sizes.memory, 0x1a4 + 0x404);
-    assert_eq!(t.root().sizes.load, 8);
+    // The RAM copy of .data has no content of its own: nothing loads there.
+    assert_eq!(t.root().sizes.load, 0);
 
     // Flash by load address includes .data's initial values.
     let t = tree(

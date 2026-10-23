@@ -16,12 +16,27 @@ pub enum Confidence {
     Yes,
 }
 
+/// Options for reading a file.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct ReadOptions {
+    /// Split bytes whose load address differs from their runtime address
+    /// into a load image and a runtime copy. See
+    /// [`crate::model::ChunkTable::build`].
+    pub split_copies: bool,
+}
+
+impl Default for ReadOptions {
+    fn default() -> Self {
+        ReadOptions { split_copies: true }
+    }
+}
+
 pub trait Reader: Send + Sync {
     fn id(&self) -> &'static str;
     fn name(&self) -> &'static str;
     /// Look at the first bytes of a file.
     fn probe(&self, header: &[u8]) -> Confidence;
-    fn read(&self, data: Bytes, path: &Path, name: String) -> Result<Binary>;
+    fn read(&self, data: Bytes, path: &Path, name: String, opts: ReadOptions) -> Result<Binary>;
 }
 
 /// Map a file into memory.
@@ -46,6 +61,7 @@ pub fn read_file(
     path: &Path,
     reader: Option<&str>,
     name: String,
+    opts: ReadOptions,
 ) -> Result<Binary> {
     let data = load_bytes(path)?;
     let reader = match reader {
@@ -67,5 +83,5 @@ pub fn read_file(
                 msg: "unknown file format".into(),
             })?,
     };
-    reader.read(data, path, name)
+    reader.read(data, path, name, opts)
 }

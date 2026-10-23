@@ -38,6 +38,8 @@ pub enum StageStatus {
 pub struct StageReport {
     pub status: StageStatus,
     pub stats: StageStats,
+    /// Notes from the stage; warnings start with `warning: `.
+    pub notes: Vec<String>,
 }
 
 pub struct RunResult {
@@ -111,6 +113,12 @@ impl Runner {
                 report,
             });
         }
+        let live: std::collections::HashSet<u64> = self
+            .cache
+            .iter()
+            .flat_map(|c| c.state.binaries.iter().map(|b| b.uid))
+            .collect();
+        self.ctx.retain_binaries(&live);
         RunResult {
             state,
             reports: self.cache.iter().map(|c| c.report.clone()).collect(),
@@ -132,6 +140,7 @@ impl Runner {
                 fragments_in: in_count,
                 fragments_out: in_count,
             },
+            notes: Vec::new(),
         };
         if !config.enabled {
             return (input, pass(StageStatus::Disabled));
@@ -143,9 +152,12 @@ impl Runner {
         if let crate::model::Availability::Unavailable(why) = stage.check(&self.ctx, &input) {
             return (input, pass(StageStatus::Unavailable(why)));
         }
-        match stage.apply(&mut self.ctx, (*input).clone()) {
+        let result = stage.apply(&mut self.ctx, (*input).clone());
+        let notes = self.ctx.take_notes();
+        match result {
             Ok(out) => {
                 let report = StageReport {
+                    notes,
                     status: StageStatus::Ok,
                     stats: StageStats {
                         input: in_total,
@@ -156,7 +168,11 @@ impl Runner {
                 };
                 (Arc::new(out), report)
             }
-            Err(e) => (input, pass(StageStatus::Failed(e.to_string()))),
+            Err(e) => {
+                let mut report = pass(StageStatus::Failed(e.to_string()));
+                report.notes = notes;
+                (input, report)
+            }
         }
     }
 }

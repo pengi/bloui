@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 use crate::Result;
 use crate::dimension::{Dimension, DimensionFactory, Labeling};
-use crate::model::{AddrSpace, Binary, Interner, Label, Overlap, SymbolKind};
+use crate::model::{Binary, Interner, Label, Overlap, SymbolKind};
 use crate::param::{ParamSpec, ParamValues};
 
 pub struct SymbolDim;
@@ -52,25 +52,13 @@ impl Dimension for Symbols {
             .collect();
         syms.sort_by(|a, b| a.binding.cmp(&b.binding).then_with(|| a.name.cmp(&b.name)));
         for sym in syms {
-            if let Some((space, span)) = bin.symbol_place(sym) {
-                l.push(space, span, Label::single(interner.intern(&sym.name)));
+            let label = Label::single(interner.intern(&sym.name));
+            for (space, span) in bin.symbol_places(sym) {
+                l.push(space, span, label.clone());
             }
         }
         if self.section_fallback {
-            for r in &bin.regions {
-                l.push_tier(
-                    1,
-                    AddrSpace::File,
-                    r.span,
-                    Label::single(interner.intern(&r.name)),
-                );
-            }
-            for sec in &bin.sections {
-                if let Some((space, span)) = bin.section_place(sec) {
-                    let name = format!("[{}]", sec.name);
-                    l.push_tier(1, space, span, Label::single(interner.intern(&name)));
-                }
-            }
+            super::push_section_fallback(&mut l, bin, interner);
         }
         Ok(l)
     }

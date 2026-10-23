@@ -134,6 +134,47 @@ fn project_file() {
 }
 
 #[test]
+fn fw_regions_free() {
+    cli(
+        "fw_regions_free",
+        &[
+            "-i",
+            "cortexm/fw.elf",
+            "-s",
+            "memory-region",
+            "--free",
+            "-s",
+            "object-file",
+            "-d",
+            "2",
+        ],
+    );
+}
+
+#[test]
+fn fw_manual_regions() {
+    cli(
+        "fw_manual_regions",
+        &[
+            "-i",
+            "cortexm/fw.elf",
+            "--region",
+            "BOOT:0x08000000:4K",
+            "--region",
+            "APP:0x08001000:60K",
+            "-s",
+            "memory-region",
+            "--free",
+            "-k",
+            "memory",
+            "--stats",
+            "-d",
+            "1",
+        ],
+    );
+}
+
+#[test]
 fn errors() {
     cli("error_no_input", &["-s", "section"]);
     cli(

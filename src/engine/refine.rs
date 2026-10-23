@@ -44,6 +44,7 @@ mod tests {
             file: Some(0),
             vma: None,
             lma: None,
+            free: false,
         };
         let frag = Fragment::new(BinaryId(0), 0, &chunk, Span::new(2, 20));
         let mut got = Vec::new();

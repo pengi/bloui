@@ -5,16 +5,18 @@ pub mod addr;
 pub mod binary;
 pub mod fragment;
 pub mod intern;
+pub mod linkmap;
 pub mod rangemap;
 pub mod size;
 
 pub use addr::{AddrSpace, Span};
 pub use binary::{
-    Binary, BinaryId, BinaryParts, Bytes, Chunk, ChunkTable, FileRegion, FormatInfo, Section,
-    SectionKind, Segment, SegmentKind, Symbol, SymbolBinding, SymbolKind,
+    Attachments, Binary, BinaryId, BinaryParts, Bytes, Chunk, ChunkTable, FileRegion, FormatInfo,
+    Section, SectionKind, Segment, SegmentKind, Symbol, SymbolBinding, SymbolKind,
 };
 pub use fragment::{Fragment, FragmentSet, LevelInfo};
 pub use intern::{Interner, Label, Sym};
+pub use linkmap::{InputSection, LinkMap, MemoryRegion, ObjectFile, OutputSection};
 pub use rangemap::{Overlap, RangeMap, RangeMapBuilder};
 pub use size::{Metric, Sizes};
 

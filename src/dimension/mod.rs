@@ -56,6 +56,12 @@ impl Labeling {
 
 pub trait Dimension: Send + Sync {
     fn label(&self, bin: &Binary, interner: &mut Interner) -> Result<Labeling>;
+
+    /// Whether free-space chunks get this dimension's labels. Otherwise
+    /// they are labeled `[free]`.
+    fn labels_free_space(&self) -> bool {
+        false
+    }
 }
 
 pub trait DimensionFactory: Send + Sync {

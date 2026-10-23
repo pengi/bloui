@@ -3,6 +3,8 @@
 
 mod category;
 mod file;
+mod object_file;
+mod region;
 mod section;
 mod segment;
 mod symbol;
@@ -16,6 +18,9 @@ pub fn all() -> Vec<Box<dyn DimensionFactory>> {
         Box::new(section::SectionDim),
         Box::new(category::CategoryDim),
         Box::new(symbol::SymbolDim),
+        Box::new(region::RegionDim),
+        Box::new(object_file::ObjectFileDim),
+        Box::new(object_file::InputSectionDim),
     ]
 }
 
@@ -31,3 +36,27 @@ macro_rules! simple_create {
     };
 }
 pub(crate) use simple_create;
+
+/// Label every section as `[<name>]` (and headers by their name) in tier 1,
+/// as the fallback of a finer dimension.
+pub(crate) fn push_section_fallback(
+    l: &mut super::Labeling,
+    bin: &crate::model::Binary,
+    interner: &mut crate::model::Interner,
+) {
+    use crate::model::{AddrSpace, Label};
+    for r in bin.headers.iter() {
+        l.push_tier(
+            1,
+            AddrSpace::File,
+            r.span,
+            Label::single(interner.intern(&r.name)),
+        );
+    }
+    for sec in bin.sections.iter() {
+        let label = Label::single(interner.intern(&format!("[{}]", sec.name)));
+        for (space, span) in bin.section_places(sec) {
+            l.push_tier(1, space, span, label.clone());
+        }
+    }
+}

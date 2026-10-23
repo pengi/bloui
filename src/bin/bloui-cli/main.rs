@@ -44,6 +44,20 @@ struct Cli {
     #[arg(short, long, value_name = "file|memory|load")]
     keep: Vec<String>,
 
+    /// Attach a linker map to the last input (linker-map stage). A map
+    /// next to the input (fw.map) is attached automatically.
+    #[arg(long, value_name = "FILE")]
+    map: Vec<String>,
+
+    /// Set a memory region by hand: `FLASH:0x08000000:64K`. Repeat for
+    /// more; all of them form one memory-regions stage.
+    #[arg(long, value_name = "NAME:ORIGIN:LENGTH")]
+    region: Vec<String>,
+
+    /// Add the free part of each memory region (free-space stage).
+    #[arg(long)]
+    free: bool,
+
     /// Add any stage: `'filter-label source=level patterns=^\.debug'`.
     /// Repeat a key for a list; `dimension.fallback=none` sets a nested
     /// parameter.
@@ -136,6 +150,9 @@ fn run(cli: &Cli, matches: &ArgMatches) -> Result<ExitCode, String> {
     let mut failed = false;
     for (i, report) in result.reports.iter().enumerate() {
         let id = &pipeline.stages[i].id;
+        for w in report.notes.iter().filter(|n| n.starts_with("warning: ")) {
+            eprintln!("bloui-cli: stage {} ({id}): {w}", i + 1);
+        }
         match &report.status {
             StageStatus::Failed(e) => {
                 eprintln!("bloui-cli: stage {} ({id}) failed: {e}", i + 1);
@@ -187,19 +204,27 @@ fn inline_stages(
             }
             Ok::<_, String>(())
         };
-    add("input", &cli.input, &mut |v| {
+    // With a project file, relative paths there are relative to the
+    // project, so make paths given here absolute.
+    let path_value = |v: &str| -> Result<ParamValue, String> {
         let mut path = PathBuf::from(v);
-        // With a project file, relative paths there are relative to the
-        // project, so make paths given here absolute.
         if absolute_inputs && path.is_relative() {
             path = std::env::current_dir()
                 .map_err(|e| e.to_string())?
                 .join(path);
         }
-        let path = ParamValue::Text(path.to_string_lossy().into_owned());
+        Ok(ParamValue::Text(path.to_string_lossy().into_owned()))
+    };
+    add("input", &cli.input, &mut |v| {
         Ok(StageConfig::new(
             "open-file",
-            ParamValues::new().with("path", path),
+            ParamValues::new().with("path", path_value(v)?),
+        ))
+    })?;
+    add("map", &cli.map, &mut |v| {
+        Ok(StageConfig::new(
+            "linker-map",
+            ParamValues::new().with("path", path_value(v)?),
         ))
     })?;
     add("split", &cli.split, &mut |v| {
@@ -234,6 +259,19 @@ fn inline_stages(
         ))
     })?;
     add("stage", &cli.stage, &mut |v| generic_stage(v, registry))?;
+    if let Some(first) = matches.indices_of("region").and_then(|mut i| i.next()) {
+        let regions = ParamValue::List(cli.region.clone());
+        stages.push((
+            first,
+            StageConfig::new(
+                "memory-regions",
+                ParamValues::new().with("regions", regions),
+            ),
+        ));
+    }
+    if let Some(i) = matches.index_of("free").filter(|_| cli.free) {
+        stages.push((i, StageConfig::new("free-space", ParamValues::new())));
+    }
     stages.sort_by_key(|(i, _)| *i);
     Ok(stages.into_iter().map(|(_, s)| s).collect())
 }

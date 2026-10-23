@@ -62,7 +62,7 @@ impl Stage for SplitStage {
         state.set.fragments = out;
         state.set.levels.push(LevelInfo {
             name: self.name.clone(),
-            dimension: self.dim.id.clone(),
+            dim: self.dim.dim_ref.clone(),
         });
         Ok(state)
     }

@@ -124,6 +124,19 @@ impl ParamSpec {
         Self::new(key, label, ParamKind::Dimension, ParamValue::Map(map))
     }
 
+    pub fn table(key: &'static str, label: &'static str, columns: Vec<ParamSpec>) -> Self {
+        Self::new(
+            key,
+            label,
+            ParamKind::Table(columns),
+            ParamValue::Table(Vec::new()),
+        )
+    }
+
+    pub fn size(key: &'static str, label: &'static str, default: u64) -> Self {
+        Self::new(key, label, ParamKind::Size, ParamValue::Int(default as i64))
+    }
+
     pub fn level(key: &'static str, label: &'static str) -> Self {
         Self::new(key, label, ParamKind::Level, ParamValue::Int(-1))
     }
@@ -340,6 +353,14 @@ fn coerce(spec: &ParamSpec, v: &ParamValue) -> Result<ParamValue> {
             Ok(v.clone())
         }
         (ParamKind::Table(_), V::List(l)) if l.is_empty() => Ok(V::Table(Vec::new())),
+        // Rows as text, columns separated by ':', as typed on a command
+        // line: `FLASH:0x08000000:64K`.
+        (ParamKind::Table(cols), V::Text(t)) => Ok(V::Table(vec![text_row(spec.key, cols, t)?])),
+        (ParamKind::Table(cols), V::List(rows)) => rows
+            .iter()
+            .map(|t| text_row(spec.key, cols, t))
+            .collect::<Result<Vec<_>>>()
+            .map(V::Table),
         (ParamKind::Table(cols), V::Table(rows)) => rows
             .iter()
             .map(|r| r.resolve(cols))
@@ -347,6 +368,21 @@ fn coerce(spec: &ParamSpec, v: &ParamValue) -> Result<ParamValue> {
             .map(V::Table),
         _ => bad(kind_name(&spec.kind)),
     }
+}
+
+fn text_row(key: &str, cols: &[ParamSpec], text: &str) -> Result<ParamValues> {
+    let parts: Vec<&str> = text.split(':').collect();
+    if parts.len() > cols.len() {
+        return Err(Error::param(
+            key,
+            format!("too many ':'-separated values in '{text}'"),
+        ));
+    }
+    let mut row = ParamValues::new();
+    for (col, part) in cols.iter().zip(parts) {
+        row.set(col.key, ParamValue::Text(part.to_owned()));
+    }
+    row.resolve(cols)
 }
 
 fn kind_name(kind: &ParamKind) -> &'static str {

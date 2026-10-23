@@ -7,6 +7,7 @@
 pub mod dimension;
 pub mod engine;
 pub mod error;
+pub mod linkmap;
 pub mod model;
 pub mod param;
 pub mod pipeline;

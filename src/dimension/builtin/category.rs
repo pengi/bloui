@@ -40,13 +40,13 @@ impl Dimension for CategoryDim {
             Label::single(interner.intern("[unmapped]")),
         );
         let headers = Label::single(interner.intern("headers"));
-        for r in &bin.regions {
+        for r in bin.headers.iter() {
             l.push(AddrSpace::File, r.span, headers.clone());
         }
-        for sec in &bin.sections {
-            if let Some((space, span)) = bin.section_place(sec) {
-                let name = category_name(sec.kind);
-                l.push(space, span, Label::single(interner.intern(name)));
+        for sec in bin.sections.iter() {
+            let label = Label::single(interner.intern(category_name(sec.kind)));
+            for (space, span) in bin.section_places(sec) {
+                l.push(space, span, label.clone());
             }
         }
         Ok(l)

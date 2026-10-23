@@ -25,16 +25,17 @@ impl Dimension for SectionDim {
             Overlap::FirstWins,
             Label::single(interner.intern("[no section]")),
         );
-        for r in &bin.regions {
+        for r in bin.headers.iter() {
             l.push(
                 AddrSpace::File,
                 r.span,
                 Label::single(interner.intern(&r.name)),
             );
         }
-        for sec in &bin.sections {
-            if let Some((space, span)) = bin.section_place(sec) {
-                l.push(space, span, Label::single(interner.intern(&sec.name)));
+        for sec in bin.sections.iter() {
+            let label = Label::single(interner.intern(&sec.name));
+            for (space, span) in bin.section_places(sec) {
+                l.push(space, span, label.clone());
             }
         }
         Ok(l)

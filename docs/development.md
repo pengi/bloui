@@ -41,10 +41,12 @@ src/
                Binary and its chunk table, fragments, sizes
   param/       parameter schemas and values (stage/dimension settings)
   reader/      Reader trait; elf/ is the only format-specific code
+  linkmap/     linker map parsers (GNU ld) and the map/binary check
   dimension/   Dimension trait; builtin/ has file, segment, section,
-               category, symbol
+               category, symbol, memory-region, object-file, input-section
   pipeline/    Stage trait, PipelineCtx (interner and caches), configs;
-               builtin/ has open-file, split, filter-label, filter-space
+               builtin/ has open-file, split, filter-label, filter-space,
+               linker-map, memory-regions, free-space
   engine/      label translation, fragment refinement, result tree,
                runner with per-stage cache
   registry/    the lists of readers, dimensions and stages
@@ -65,12 +67,22 @@ add it to the list in that directory's `mod.rs`. Parameters are declared as
 
 A dimension returns a `Labeling`: label entries in any address space, an
 overlap policy, and a fallback label. Use tiers for fallbacks that should
-lose against real labels (the symbol dimension's `[.text]`).
+lose against real labels (the symbol dimension's `[.text]`). Place a range
+in a section with `Binary::places_in_section`, which gives both its file
+range and its runtime range, so load images and runtime copies are both
+labeled.
+
+A stage that changes a binary (attaches something) makes a copy with
+`Binary::derive` through `PipelineCtx::derive_binary`, which caches it so
+reruns keep the same binary and its cached labels. Stages report with
+`ctx.note()` and `ctx.warn()`.
 
 ## Tests
 
 - Unit tests next to the code (range maps, chunk tables, params, cutting).
 - `tests/elf_reader.rs`: reader output against facts from `readelf`/`nm`.
+- `tests/embedded.rs`: linker map parsing and checking, memory regions,
+  free space, object files.
 - `tests/engine.rs`: invariants: totals don't depend on split order,
   children sum to their parent, filter statistics add up, flash/RAM by
   address.

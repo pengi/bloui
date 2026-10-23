@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 //! ELF reader, using the `object` crate's raw ELF API.
 
-use super::{Confidence, Reader};
+use super::{Confidence, ReadOptions, Reader};
 use crate::model::{
     Binary, BinaryParts, Bytes, FileRegion, FormatInfo, Section, SectionKind, Segment, SegmentKind,
     Span, Symbol, SymbolBinding, SymbolKind,
@@ -63,7 +63,7 @@ impl Reader for ElfReader {
         }
     }
 
-    fn read(&self, data: Bytes, path: &Path, name: String) -> Result<Binary> {
+    fn read(&self, data: Bytes, path: &Path, name: String, opts: ReadOptions) -> Result<Binary> {
         let fail = |msg: String| Error::Format {
             path: path.to_owned(),
             msg,
@@ -79,17 +79,18 @@ impl Reader for ElfReader {
             path: path.to_owned(),
             data,
             format: parts.format,
-            regions: parts.regions,
+            headers: parts.headers,
             sections: parts.sections,
             segments: parts.segments,
             symbols: parts.symbols,
+            split_copies: opts.split_copies,
         }))
     }
 }
 
 struct Parsed {
     format: FormatInfo,
-    regions: Vec<FileRegion>,
+    headers: Vec<FileRegion>,
     sections: Vec<Section>,
     segments: Vec<Segment>,
     symbols: Vec<Symbol>,
@@ -107,14 +108,14 @@ fn parse<Elf: FileHeader<Endian = Endianness>>(data: &[u8]) -> object::Result<Pa
         relocatable: hdr.e_type(e).0 == ET_REL,
     };
 
-    let mut regions = vec![FileRegion {
+    let mut headers = vec![FileRegion {
         name: "[ELF header]".into(),
         span: Span::at(0, hdr.e_ehsize(e).into()),
     }];
     let phoff: u64 = hdr.e_phoff(e).into();
     let phlen = u64::from(hdr.e_phnum(e)) * u64::from(hdr.e_phentsize(e));
     if phoff != 0 && phlen != 0 {
-        regions.push(FileRegion {
+        headers.push(FileRegion {
             name: "[program headers]".into(),
             span: Span::at(phoff, phlen),
         });
@@ -123,7 +124,7 @@ fn parse<Elf: FileHeader<Endian = Endianness>>(data: &[u8]) -> object::Result<Pa
     let table = file.elf_section_table();
     let shlen = table.len() as u64 * u64::from(hdr.e_shentsize(e));
     if shoff != 0 && shlen != 0 {
-        regions.push(FileRegion {
+        headers.push(FileRegion {
             name: "[section headers]".into(),
             span: Span::at(shoff, shlen),
         });
@@ -229,7 +230,7 @@ fn parse<Elf: FileHeader<Endian = Endianness>>(data: &[u8]) -> object::Result<Pa
 
     Ok(Parsed {
         format,
-        regions,
+        headers,
         sections,
         segments,
         symbols,

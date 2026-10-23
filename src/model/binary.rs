@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-only
 //! The format-neutral binary, and its chunk table.
 
+use super::linkmap::{LinkMap, MemoryRegion};
 use super::{AddrSpace, Sizes, Span};
+use smallvec::SmallVec;
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -166,12 +168,18 @@ pub struct FileRegion {
 }
 
 /// A contiguous run of bytes with the same length in every space it has.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+///
+/// Bytes whose load address differs from their runtime address (`.data`
+/// on a microcontroller) are two chunks: the image in the file at the load
+/// address, and the copy at the runtime address. Both take memory.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub struct Chunk {
     pub unified: Span,
     pub file: Option<u64>,
     pub vma: Option<u64>,
     pub lma: Option<u64>,
+    /// Free space in a memory region, added by the `free-space` stage.
+    pub free: bool,
 }
 
 impl Chunk {
@@ -200,12 +208,20 @@ impl Chunk {
         self.file.is_some()
     }
 
+    /// Takes address space at runtime or at its load address.
     pub fn is_memory(&self) -> bool {
-        self.vma.is_some()
+        self.vma.is_some() || self.lma.is_some()
     }
 
+    /// Has content that is loaded: part of the flash image.
     pub fn is_load(&self) -> bool {
-        self.file.is_some() && self.vma.is_some()
+        self.file.is_some() && self.is_memory()
+    }
+
+    /// Where the chunk takes address space: its runtime address, or its
+    /// load address for a load image.
+    pub fn addr(&self) -> Option<u64> {
+        self.vma.or(self.lma)
     }
 
     /// Sizes of `len` bytes of this chunk.
@@ -273,7 +289,16 @@ impl ChunkTable {
 
     /// Cut a file into chunks from its segments, or from its sections when
     /// there are no loadable segments (relocatable objects).
-    pub fn build(file_len: u64, segments: &[Segment], sections: &[Section]) -> Self {
+    ///
+    /// With `split_copies`, file bytes whose load address differs from their
+    /// runtime address become two chunks (see [`Chunk`]). Without it, the
+    /// load address is only kept as an attribute.
+    pub fn build(
+        file_len: u64,
+        segments: &[Segment],
+        sections: &[Section],
+        split_copies: bool,
+    ) -> Self {
         let mut maps: Vec<Mapping> = segments
             .iter()
             .filter(|s| s.kind == SegmentKind::Load)
@@ -315,6 +340,7 @@ impl ChunkTable {
                 file,
                 vma,
                 lma,
+                free: false,
             });
             unified += len;
         };
@@ -326,14 +352,23 @@ impl ChunkTable {
             let map = maps
                 .iter()
                 .find(|m| m.file.is_some_and(|f| f.contains(piece.start)));
-            let (vma, lma) = match map {
+            match map {
+                Some(m) if split_copies && m.vma != m.lma => {
+                    let off = piece.start - m.file.unwrap().start;
+                    push(piece.len(), Some(piece.start), None, Some(m.lma + off));
+                    push(piece.len(), None, Some(m.vma + off), None);
+                }
                 Some(m) => {
                     let off = piece.start - m.file.unwrap().start;
-                    (Some(m.vma + off), Some(m.lma + off))
+                    push(
+                        piece.len(),
+                        Some(piece.start),
+                        Some(m.vma + off),
+                        Some(m.lma + off),
+                    );
                 }
-                None => (None, None),
-            };
-            push(piece.len(), Some(piece.start), vma, lma);
+                None => push(piece.len(), Some(piece.start), None, None),
+            }
         }
         // Memory-only tails (NOBITS) get no load address: nothing is
         // loaded for them, so they don't take room in flash.
@@ -348,6 +383,23 @@ impl ChunkTable {
 
     pub fn chunks(&self) -> &[Chunk] {
         &self.chunks
+    }
+
+    /// A copy with free-space chunks added at the end, one per VMA range.
+    pub fn with_free(&self, free: &[Span]) -> Self {
+        let mut chunks = self.chunks.clone();
+        let mut unified = self.total();
+        for span in free.iter().filter(|s| !s.is_empty()) {
+            chunks.push(Chunk {
+                unified: Span::at(unified, span.len()),
+                file: None,
+                vma: Some(span.start),
+                lma: None,
+                free: true,
+            });
+            unified += span.len();
+        }
+        ChunkTable::new(chunks)
     }
 
     pub fn chunk(&self, index: usize) -> &Chunk {
@@ -411,7 +463,16 @@ impl ChunkTable {
 
 static NEXT_UID: AtomicU64 = AtomicU64::new(1);
 
-/// A loaded binary, independent of its file format.
+/// Data added to a binary by pipeline stages, from outside the binary.
+#[derive(Debug, Clone, Default)]
+pub struct Attachments {
+    pub linkmap: Option<Arc<LinkMap>>,
+    /// Memory regions set by a stage. Override the linker map's.
+    pub memory_regions: Option<Arc<Vec<MemoryRegion>>>,
+}
+
+/// A loaded binary, independent of its file format. Cheap to clone; a
+/// stage that changes a binary clones it and gives it a new `uid`.
 #[derive(Debug, Clone)]
 pub struct Binary {
     /// Unique per loaded or modified binary. Caches key on it.
@@ -420,11 +481,13 @@ pub struct Binary {
     pub path: PathBuf,
     pub data: Arc<Bytes>,
     pub format: FormatInfo,
-    pub regions: Vec<FileRegion>,
-    pub sections: Vec<Section>,
-    pub segments: Vec<Segment>,
-    pub symbols: Vec<Symbol>,
-    pub chunks: ChunkTable,
+    /// Named file ranges outside the sections, like the ELF header.
+    pub headers: Arc<Vec<FileRegion>>,
+    pub sections: Arc<Vec<Section>>,
+    pub segments: Arc<Vec<Segment>>,
+    pub symbols: Arc<Vec<Symbol>>,
+    pub chunks: Arc<ChunkTable>,
+    pub attachments: Attachments,
 }
 
 pub struct BinaryParts {
@@ -432,11 +495,16 @@ pub struct BinaryParts {
     pub path: PathBuf,
     pub data: Bytes,
     pub format: FormatInfo,
-    pub regions: Vec<FileRegion>,
+    pub headers: Vec<FileRegion>,
     pub sections: Vec<Section>,
     pub segments: Vec<Segment>,
     pub symbols: Vec<Symbol>,
+    /// See [`ChunkTable::build`].
+    pub split_copies: bool,
 }
+
+/// Up to two places for one range: in the file, and at runtime.
+pub type Places = SmallVec<[(AddrSpace, Span); 2]>;
 
 impl Binary {
     /// Build a binary: fills in section load addresses and the chunk table.
@@ -446,10 +514,11 @@ impl Binary {
             path,
             data,
             format,
-            regions,
+            headers,
             mut sections,
             segments,
             symbols,
+            split_copies,
         } = parts;
         for sec in sections.iter_mut().filter(|s| s.alloc && !s.nobits) {
             sec.lma = segments
@@ -459,18 +528,38 @@ impl Binary {
                 .map(|seg| seg.paddr + (sec.vma - seg.vaddr))
                 .or_else(|| segments.is_empty().then_some(sec.vma));
         }
-        let chunks = ChunkTable::build(data.len() as u64, &segments, &sections);
+        let chunks = ChunkTable::build(data.len() as u64, &segments, &sections, split_copies);
         Binary {
             uid: Self::new_uid(),
             name,
             path,
             data: Arc::new(data),
             format,
-            regions,
-            sections,
-            segments,
-            symbols,
-            chunks,
+            headers: Arc::new(headers),
+            sections: Arc::new(sections),
+            segments: Arc::new(segments),
+            symbols: Arc::new(symbols),
+            chunks: Arc::new(chunks),
+            attachments: Attachments::default(),
+        }
+    }
+
+    /// A modified copy, with a new uid.
+    pub fn derive(&self, f: impl FnOnce(&mut Binary)) -> Binary {
+        let mut b = self.clone();
+        b.uid = Self::new_uid();
+        f(&mut b);
+        b
+    }
+
+    /// The memory regions: set by a stage, or from the linker map.
+    pub fn memory_regions(&self) -> &[MemoryRegion] {
+        if let Some(r) = &self.attachments.memory_regions {
+            r
+        } else if let Some(m) = &self.attachments.linkmap {
+            &m.regions
+        } else {
+            &[]
         }
     }
 
@@ -478,40 +567,46 @@ impl Binary {
         NEXT_UID.fetch_add(1, Ordering::Relaxed)
     }
 
-    /// Where a section's bytes are, in the space that fits best: the file
-    /// if it has content there, otherwise its runtime address.
-    pub fn section_place(&self, sec: &Section) -> Option<(AddrSpace, Span)> {
-        if sec.size == 0 {
-            return None;
+    /// Where `len` bytes at `offset` into a section are: in the file if
+    /// the section has content there, and at runtime if it is allocated.
+    /// Labeling both places covers the load image and the runtime copy of
+    /// a section like `.data` (see [`Chunk`]).
+    pub fn places_in_section(&self, sec: &Section, offset: u64, len: u64) -> Places {
+        let mut out = Places::new();
+        if len == 0 || offset >= sec.size.max(1) {
+            return out;
         }
         if let Some(f) = sec.file {
-            Some((AddrSpace::File, f))
-        } else if sec.alloc && !sec.tls {
-            Some((AddrSpace::Vma, Span::at(sec.vma, sec.size)))
-        } else {
-            None
+            out.push((AddrSpace::File, Span::at(f.start + offset, len)));
+        }
+        if sec.alloc && !sec.tls {
+            out.push((AddrSpace::Vma, Span::at(sec.vma + offset, len)));
+        }
+        out
+    }
+
+    pub fn section_places(&self, sec: &Section) -> Places {
+        self.places_in_section(sec, 0, sec.size)
+    }
+
+    /// Where a symbol's bytes are. Placed relative to its section, which
+    /// also works for relocatable objects where every section is at 0.
+    pub fn symbol_places(&self, sym: &Symbol) -> Places {
+        let Some(sec) = sym.section.map(|i| &self.sections[i]) else {
+            return Places::new();
+        };
+        if !sec.alloc || sym.size == 0 {
+            return Places::new();
+        }
+        match sym.addr.checked_sub(sec.vma) {
+            Some(off) => self.places_in_section(sec, off, sym.size),
+            None => Places::new(),
         }
     }
 
-    /// Where a symbol's bytes are. Symbols in sections with file content
-    /// are placed by file offset, which also works for relocatable objects
-    /// where every section starts at address 0.
-    pub fn symbol_place(&self, sym: &Symbol) -> Option<(AddrSpace, Span)> {
-        if sym.size == 0 {
-            return None;
-        }
-        let sec = &self.sections[sym.section?];
-        if !sec.alloc {
-            return None;
-        }
-        match sec.file {
-            Some(f) => {
-                let off = sym.addr.checked_sub(sec.vma)?;
-                Some((AddrSpace::File, Span::at(f.start + off, sym.size)))
-            }
-            None if !sec.tls => Some((AddrSpace::Vma, Span::at(sym.addr, sym.size))),
-            None => None,
-        }
+    /// A section by name.
+    pub fn section(&self, name: &str) -> Option<&Section> {
+        self.sections.iter().find(|s| s.name == name)
     }
 }
 
@@ -624,13 +719,14 @@ pub(crate) mod tests {
             path: "fw.elf".into(),
             data: Bytes::Owned(vec![0; 0x100]),
             format: FormatInfo::Unknown,
-            regions: vec![FileRegion {
+            headers: vec![FileRegion {
                 name: "[header]".into(),
                 span: Span::new(0, 0x10),
             }],
             sections,
             segments,
             symbols,
+            split_copies: true,
         })
     }
 
@@ -638,40 +734,88 @@ pub(crate) mod tests {
     fn chunk_table_cortex_m() {
         let b = cortex_m();
         let c = b.chunks.chunks();
-        // header, text, data, debug, bss tail
-        assert_eq!(c.len(), 5);
+        // header, text, data image, data copy, debug, bss tail
+        assert_eq!(c.len(), 6);
+        let chunk = |u: (u64, u64), file, vma, lma| Chunk {
+            unified: Span::new(u.0, u.1),
+            file,
+            vma,
+            lma,
+            free: false,
+        };
+        assert_eq!(c[0], chunk((0, 0x10), Some(0), None, None));
         assert_eq!(
-            c[0],
-            Chunk {
-                unified: Span::new(0, 0x10),
-                file: Some(0),
-                vma: None,
-                lma: None
+            c[1],
+            chunk(
+                (0x10, 0x50),
+                Some(0x10),
+                Some(0x0800_0000),
+                Some(0x0800_0000)
+            )
+        );
+        assert_eq!(
+            c[2],
+            chunk((0x50, 0x60), Some(0x50), None, Some(0x0800_0040))
+        );
+        assert_eq!(c[3], chunk((0x60, 0x70), None, Some(0x2000_0000), None));
+        assert_eq!(c[4], chunk((0x70, 0x110), Some(0x60), None, None));
+        assert_eq!(c[5], chunk((0x110, 0x130), None, Some(0x2000_0010), None));
+        assert_eq!(b.sections[1].lma, Some(0x0800_0040));
+        // The image counts as file, memory and load; the copy as memory.
+        assert_eq!(
+            c[2].sizes(4),
+            Sizes {
+                file: 4,
+                memory: 4,
+                load: 4
             }
         );
-        assert_eq!(c[2].vma, Some(0x2000_0000));
-        assert_eq!(c[2].lma, Some(0x0800_0040));
-        assert_eq!(c[4].file, None);
-        assert_eq!(c[4].vma, Some(0x2000_0010));
-        assert_eq!(c[4].len(), 0x20);
-        assert_eq!(b.chunks.total(), 0x120);
-        assert_eq!(b.sections[1].lma, Some(0x0800_0040));
+        assert_eq!(
+            c[3].sizes(4),
+            Sizes {
+                file: 0,
+                memory: 4,
+                load: 0
+            }
+        );
+    }
+
+    #[test]
+    fn no_split_copies() {
+        let mut parts_b = cortex_m();
+        let t = ChunkTable::build(0x100, &parts_b.segments, &parts_b.sections, false);
+        assert_eq!(t.chunks().len(), 5);
+        assert_eq!(t.chunk(2).vma, Some(0x2000_0000));
+        assert_eq!(t.chunk(2).lma, Some(0x0800_0040));
+        parts_b.chunks = Arc::new(t);
     }
 
     #[test]
     fn translate_spaces() {
         let b = cortex_m();
-        // .data + .bss by VMA: one file-backed chunk and the memory tail.
+        // .data + .bss by VMA: the runtime copy and the memory tail.
         let u = b
             .chunks
             .to_unified(AddrSpace::Vma, Span::new(0x2000_0000, 0x2000_0030));
-        assert_eq!(u, vec![Span::new(0x50, 0x60), Span::new(0x100, 0x120)]);
-        // Flash by LMA: .text and .data init values.
+        assert_eq!(u, vec![Span::new(0x60, 0x70), Span::new(0x110, 0x130)]);
+        // Flash by LMA: .text and the .data image.
         let u = b
             .chunks
             .to_unified(AddrSpace::Lma, Span::new(0x0800_0000, 0x0800_0050));
         assert_eq!(u, vec![Span::new(0x10, 0x50), Span::new(0x50, 0x60)]);
         let u = b.chunks.to_unified(AddrSpace::File, Span::new(0x58, 0x70));
-        assert_eq!(u, vec![Span::new(0x58, 0x60), Span::new(0x60, 0x70)]);
+        assert_eq!(u, vec![Span::new(0x58, 0x60), Span::new(0x70, 0x80)]);
+    }
+
+    #[test]
+    fn data_places_cover_both_copies() {
+        let b = cortex_m();
+        let data = &b.sections[1];
+        let mut covered = Vec::new();
+        for (space, span) in b.section_places(data) {
+            covered.extend(b.chunks.to_unified(space, span));
+        }
+        covered.sort();
+        assert_eq!(covered, vec![Span::new(0x50, 0x60), Span::new(0x60, 0x70)]);
     }
 }

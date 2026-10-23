@@ -20,7 +20,14 @@ pub const HOST: &str = "host/hello.elf";
 
 pub fn read(rel: &str) -> Binary {
     let reg = Registry::builtin();
-    bloui::reader::read_file(&reg.readers, &fixture(rel), None, rel.into()).unwrap()
+    bloui::reader::read_file(
+        &reg.readers,
+        &fixture(rel),
+        None,
+        rel.into(),
+        Default::default(),
+    )
+    .unwrap()
 }
 
 pub fn open(rel: &str) -> StageConfig {
