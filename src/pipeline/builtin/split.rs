@@ -26,6 +26,13 @@ impl StageFactory for Split {
             ParamSpec::text("name", "Level name", "").help("The dimension's name if empty"),
         ]
     }
+    fn summary(&self, p: &ParamValues, registry: &Registry) -> String {
+        let dim = registry.dimension_summary(&p.dimension("dimension"));
+        match p.text("name") {
+            "" => format!("split by {dim}"),
+            name => format!("split by {dim} as \"{name}\""),
+        }
+    }
     fn create(&self, params: &ParamValues, registry: &Registry) -> Result<Box<dyn Stage>> {
         let dim = registry.create_dimension(&params.dimension("dimension"))?;
         let name = match params.text("name") {

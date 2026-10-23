@@ -32,8 +32,11 @@ impl StageFactory for FilterLabel {
                     ("level", "An existing tree level"),
                 ],
             ),
-            ParamSpec::dimension("dimension", "Dimension", "section"),
-            ParamSpec::level("level", "Level").help("Name or index; the last level if not set"),
+            ParamSpec::dimension("dimension", "Dimension", "section")
+                .visible_when("source", "dimension"),
+            ParamSpec::level("level", "Level")
+                .help("Name or index; the last level if not set")
+                .visible_when("source", "level"),
             ParamSpec::choice(
                 "mode",
                 "Mode",
@@ -49,6 +52,22 @@ impl StageFactory for FilterLabel {
             ),
             ParamSpec::list("patterns", "Patterns"),
         ]
+    }
+    fn summary(&self, p: &ParamValues, registry: &Registry) -> String {
+        let source = if p.text("source") == "level" {
+            match p.level("level") {
+                LevelRef::Index(i) => format!("level {i}"),
+                LevelRef::Name(n) => n,
+                LevelRef::Last => "last level".into(),
+            }
+        } else {
+            registry.dimension_summary(&p.dimension("dimension"))
+        };
+        let op = if p.text("match") == "regex" { "~" } else { "=" };
+        match p.list("patterns") {
+            [] => format!("{} {source} (no patterns)", p.text("mode")),
+            pats => format!("{} {source} {op} {}", p.text("mode"), pats.join(", ")),
+        }
     }
     fn create(&self, params: &ParamValues, registry: &Registry) -> Result<Box<dyn Stage>> {
         let patterns = params.list("patterns");

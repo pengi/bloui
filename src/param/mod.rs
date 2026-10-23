@@ -46,6 +46,8 @@ pub struct ParamSpec {
     pub help: &'static str,
     pub kind: ParamKind,
     pub default: ParamValue,
+    /// Only relevant when another parameter (key) has this value.
+    pub visible_when: Option<(&'static str, &'static str)>,
 }
 
 impl ParamSpec {
@@ -61,12 +63,31 @@ impl ParamSpec {
             help: "",
             kind,
             default,
+            visible_when: None,
         }
     }
 
     pub fn help(mut self, help: &'static str) -> Self {
         self.help = help;
         self
+    }
+
+    /// Show this parameter only when `key` is set to `value`.
+    pub fn visible_when(mut self, key: &'static str, value: &'static str) -> Self {
+        self.visible_when = Some((key, value));
+        self
+    }
+
+    /// Whether the parameter matters with these values (`specs` gives the
+    /// defaults of values that aren't set).
+    pub fn is_visible(&self, values: &ParamValues, specs: &[ParamSpec]) -> bool {
+        let Some((key, want)) = self.visible_when else {
+            return true;
+        };
+        let value = values
+            .get(key)
+            .or_else(|| specs.iter().find(|s| s.key == key).map(|s| &s.default));
+        matches!(value, Some(ParamValue::Text(t)) if t == want)
     }
 
     pub fn bool(key: &'static str, label: &'static str, default: bool) -> Self {
@@ -202,6 +223,10 @@ impl ParamValues {
         self.0.get(key)
     }
 
+    pub fn remove(&mut self, key: &str) -> Option<ParamValue> {
+        self.0.remove(key)
+    }
+
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
@@ -289,6 +314,27 @@ impl ParamValues {
             Some(ParamValue::Text(t)) if !t.is_empty() => LevelRef::Name(t.clone()),
             _ => LevelRef::Last,
         }
+    }
+}
+
+/// Check one value against its spec, as typed in a form or on a command
+/// line, and return it coerced to the right type.
+pub fn check_value(spec: &ParamSpec, v: &ParamValue) -> Result<ParamValue> {
+    coerce(spec, v)
+}
+
+/// A value as text for an entry field: sizes in decimal, addresses in
+/// hex, lists one per line, "last" levels empty.
+pub fn value_text(spec: &ParamSpec, v: &ParamValue) -> String {
+    match (&spec.kind, v) {
+        (ParamKind::Address, ParamValue::Int(n)) => format!("{n:#x}"),
+        (ParamKind::Level, ParamValue::Int(n)) if *n < 0 => String::new(),
+        (_, ParamValue::Int(n)) => n.to_string(),
+        (_, ParamValue::Bool(b)) => b.to_string(),
+        (_, ParamValue::Text(t)) => t.clone(),
+        (_, ParamValue::List(l)) => l.join("\n"),
+        (_, ParamValue::Map(m)) => m.text("id").to_owned(),
+        (_, ParamValue::Table(rows)) => format!("{} rows", rows.len()),
     }
 }
 
@@ -462,6 +508,23 @@ mod tests {
         assert_eq!(r.opt_u64("a"), Some(16));
         assert_eq!(r.list("l"), ["x"]);
         assert_eq!(r.dimension("d").id, "symbol");
+    }
+
+    #[test]
+    fn visibility_and_text() {
+        let specs = vec![
+            ParamSpec::choice("src", "S", &[("dim", "D"), ("level", "L")]),
+            ParamSpec::level("level", "L").visible_when("src", "level"),
+        ];
+        let v = ParamValues::new();
+        assert!(!specs[1].is_visible(&v, &specs));
+        let v = v.with("src", ParamValue::Text("level".into()));
+        assert!(specs[1].is_visible(&v, &specs));
+        assert_eq!(value_text(&specs[1], &ParamValue::Int(-1)), "");
+        let a = ParamSpec::address("a", "A");
+        let typed = check_value(&a, &ParamValue::Text("4K".into())).unwrap();
+        assert_eq!(value_text(&a, &typed), "0x1000");
+        assert!(check_value(&a, &ParamValue::Text("4Q".into())).is_err());
     }
 
     #[test]

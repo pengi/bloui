@@ -1,11 +1,11 @@
 Pipeline (memory):
-   1. open-file              0 → 3.04Ki      +3.04Ki  ok
+   1. open fw.elf                      0 → 3.04Ki      +3.04Ki  ok
       attached ./cortexm/fw.map
-   2. memory-regions    3.04Ki → 3.04Ki           +0  ok
-   3. split             3.04Ki → 3.04Ki           +0  ok
-   4. free-space        3.04Ki → 65.4Ki      +62.4Ki  ok
+   2. regions BOOT, APP           3.04Ki → 3.04Ki           +0  ok
+   3. split by memory-region      3.04Ki → 3.04Ki           +0  ok
+   4. free space                  3.04Ki → 65.4Ki      +62.4Ki  ok
       fw.elf: 63868 bytes free in 2 regions
-   5. filter-space      65.4Ki → 65.4Ki           +0  ok
+   5. keep memory                 65.4Ki → 65.4Ki           +0  ok
 
      FILE    MEMORY      LOAD      %M  memory region
    1.63Ki    65.4Ki    1.63Ki  100.0%  TOTAL

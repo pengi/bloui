@@ -58,9 +58,11 @@ src/
                reruns) and the cached treemap view; frontends forward
                input here and paint the scene
   bin/bloui/       GTK frontend: app (startup), window (layout, actions,
-                   open/save), tree_view (ColumnView over a lazy
-                   TreeListModel), treemap (widget painting the scene),
-                   worker (runs the Runner off the GUI thread)
+                   open/save, undo), pipeline/ (stage list; form/ builds
+                   parameter forms from ParamSpecs), tree_view
+                   (ColumnView over a lazy TreeListModel), treemap
+                   (widget painting the scene), worker (runs the Runner
+                   off the GUI thread)
   bin/bloui-cli/   text frontend
 ```
 
@@ -73,6 +75,11 @@ Write a factory and the implementation in one file under `builtin/`, and
 add it to the list in that directory's `mod.rs`. Parameters are declared as
 `ParamSpec`s; `ParamValues::resolve` checks and fills them in before
 `create` is called, so `create` can read them with the typed getters.
+The GUI builds its forms from the same specs: give each a label and help
+text, and use `ParamSpec::visible_when(key, value)` for a parameter that
+only matters for some value of another. A stage should also implement
+`StageFactory::summary`, the one line shown in the pipeline list and in
+`bloui-cli --stats`.
 
 A dimension returns a `Labeling`: label entries in any address space, an
 overlap policy, and a fallback label. Use tiers for fallbacks that should

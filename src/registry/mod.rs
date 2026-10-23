@@ -62,6 +62,31 @@ impl Registry {
         self.stages.iter().find(|s| s.id() == id).map(|s| &**s)
     }
 
+    /// A dimension with the parameters that differ from their defaults:
+    /// `symbol (fallback=none)`.
+    pub fn dimension_summary(&self, r: &DimRef) -> String {
+        let Some(factory) = self.dimension(&r.id) else {
+            return r.id.clone();
+        };
+        let specs = factory.params();
+        let Ok(params) = r.params.resolve(&specs) else {
+            return format!("{} (invalid)", r.id);
+        };
+        let changed: Vec<String> = specs
+            .iter()
+            .filter(|s| params.get(s.key) != Some(&s.default))
+            .map(|s| {
+                let v = params.get(s.key).unwrap_or(&s.default);
+                format!("{}={}", s.key, crate::param::value_text(s, v))
+            })
+            .collect();
+        if changed.is_empty() {
+            r.id.clone()
+        } else {
+            format!("{} ({})", r.id, changed.join(", "))
+        }
+    }
+
     pub fn create_dimension(&self, r: &DimRef) -> Result<DimHandle> {
         let factory = self.dimension(&r.id).ok_or_else(|| Error::Unknown {
             kind: "dimension",

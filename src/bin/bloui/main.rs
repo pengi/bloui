@@ -5,6 +5,7 @@
 //! Usage: `bloui [FILE.elf | PROJECT.bloui.toml]`.
 
 mod app;
+mod pipeline;
 mod tree_view;
 mod treemap;
 mod window;

@@ -40,6 +40,13 @@ impl StageFactory for OpenFile {
             ),
         ]
     }
+    fn summary(&self, p: &ParamValues, _registry: &Registry) -> String {
+        let path = std::path::Path::new(p.text("path"));
+        match path.file_name() {
+            Some(n) => format!("open {}", n.to_string_lossy()),
+            None => "open (no file)".into(),
+        }
+    }
     fn create(&self, params: &ParamValues, _registry: &Registry) -> Result<Box<dyn Stage>> {
         let path = PathBuf::from(params.text("path"));
         if path.as_os_str().is_empty() {

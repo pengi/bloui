@@ -2,6 +2,9 @@
 //! The processing pipeline: stages, their configuration and context.
 
 pub mod builtin;
+mod history;
+
+pub use history::History;
 
 use crate::Result;
 use crate::dimension::Dimension;
@@ -303,8 +306,24 @@ pub trait StageFactory: Send + Sync {
     fn name(&self) -> &'static str;
     fn description(&self) -> &'static str;
     fn params(&self) -> Vec<ParamSpec>;
+    /// One line about a configured stage, like "split by section".
+    /// `params` are resolved.
+    fn summary(&self, _params: &ParamValues, _registry: &Registry) -> String {
+        self.name().to_lowercase()
+    }
     /// `params` are already resolved against [`Self::params`].
     fn create(&self, params: &ParamValues, registry: &Registry) -> Result<Box<dyn Stage>>;
+}
+
+/// One line about a stage; its id if it can't be resolved.
+pub fn summary(config: &StageConfig, registry: &Registry) -> String {
+    let Some(factory) = registry.stage(&config.id) else {
+        return config.id.clone();
+    };
+    match config.params.resolve(&factory.params()) {
+        Ok(p) => factory.summary(&p, registry),
+        Err(_) => format!("{} (invalid)", config.id),
+    }
 }
 
 pub trait Stage: Send + Sync {

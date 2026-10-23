@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: GPL-2.0-only
-//! The main window: header bar, tree list, treemap and status bar.
+//! The main window: header bar, pipeline pane, tree list, treemap and
+//! status bar.
 
 use crate::SharedView;
+use crate::pipeline::PipelinePane;
 use crate::tree_view::TreeView;
 use crate::treemap::{Change, Treemap};
 use crate::worker::{Output, Worker};
 use bloui::engine::{AnalysisTree, StageReport, StageStatus};
 use bloui::model::Metric;
-use bloui::pipeline::Pipeline;
+use bloui::pipeline::History;
 use bloui::registry::Registry;
 use bloui::view::ViewState;
 use gtk::prelude::*;
@@ -20,7 +22,8 @@ use std::sync::Arc;
 /// What is open: the pipeline and where its relative paths start.
 #[derive(Default)]
 struct Doc {
-    pipeline: Pipeline,
+    /// The pipeline, with undo and redo.
+    history: History,
     base_dir: PathBuf,
     /// The project file, once opened or saved.
     project: Option<PathBuf>,
@@ -31,6 +34,7 @@ struct Doc {
 pub struct Window {
     pub window: gtk::ApplicationWindow,
     stack: gtk::Stack,
+    pipeline: Rc<PipelinePane>,
     tree: Rc<TreeView>,
     treemap: Treemap,
     status: gtk::Label,
@@ -43,6 +47,9 @@ pub struct Window {
     worker: Worker,
     /// Counts runs, so results of older runs are dropped.
     generation: Cell<u64>,
+    /// A run waiting for edits to pause.
+    pending: RefCell<Option<glib::SourceId>>,
+    registry: Arc<Registry>,
 }
 
 impl Window {
@@ -83,15 +90,25 @@ impl Window {
         header.pack_end(&zoom_out);
         window.set_titlebar(Some(&header));
 
+        let registry = Arc::new(Registry::builtin());
         let view: SharedView = Rc::new(RefCell::new(None));
+        let pipeline = PipelinePane::new(registry.clone());
         let tree = TreeView::new();
         let treemap = Treemap::new(view.clone());
-        let paned = gtk::Paned::builder()
+        // The pipeline pane runs the full height, so its form has room.
+        let views = gtk::Paned::builder()
             .orientation(gtk::Orientation::Vertical)
             .start_child(&tree.widget)
             .end_child(&treemap)
             .position(300)
             .wide_handle(true)
+            .build();
+        let paned = gtk::Paned::builder()
+            .orientation(gtk::Orientation::Horizontal)
+            .start_child(&pipeline.widget)
+            .end_child(&views)
+            .position(320)
+            .shrink_start_child(false)
             .build();
 
         let status = gtk::Label::builder()
@@ -127,6 +144,7 @@ impl Window {
         let this = Rc::new(Window {
             window,
             stack,
+            pipeline,
             tree,
             treemap,
             status,
@@ -136,8 +154,10 @@ impl Window {
             zoom_out,
             view,
             doc: RefCell::new(Doc::default()),
-            worker: Worker::new(),
+            worker: Worker::new(registry.clone()),
             generation: Cell::new(0),
+            pending: RefCell::new(None),
+            registry,
         });
         this.setup_actions(app);
         this.connect_signals();
@@ -166,6 +186,16 @@ impl Window {
         action("save", Window::save);
         action("save-as", Window::save_dialog);
         action("reload", |w| w.run(true));
+        action("undo", |w| w.undo_redo(true));
+        action("redo", |w| w.undo_redo(false));
+        action("toggle-pipeline", |w| {
+            let pane = &w.pipeline.widget;
+            pane.set_visible(!pane.is_visible());
+        });
+        self.update_undo();
+        app.set_accels_for_action("win.undo", &["<Control>z"]);
+        app.set_accels_for_action("win.redo", &["<Control><Shift>z", "<Control>y"]);
+        app.set_accels_for_action("win.toggle-pipeline", &["F9"]);
         app.set_accels_for_action("win.open", &["<Control>o"]);
         app.set_accels_for_action("win.save", &["<Control>s"]);
         app.set_accels_for_action("win.save-as", &["<Control><Shift>s"]);
@@ -174,6 +204,16 @@ impl Window {
     }
 
     fn connect_signals(self: &Rc<Self>) {
+        let weak = Rc::downgrade(self);
+        self.pipeline.connect_edit(move |pipeline, tag| {
+            let Some(this) = weak.upgrade() else { return };
+            let changed = this.doc.borrow_mut().history.edit(pipeline, tag.as_deref());
+            if changed {
+                this.update_undo();
+                this.schedule_run();
+            }
+        });
+
         let weak = Rc::downgrade(self);
         self.treemap.connect_change(move |change| {
             let Some(this) = weak.upgrade() else { return };
@@ -276,24 +316,72 @@ impl Window {
         let name = path.file_name().map(|n| n.to_string_lossy().into_owned());
         self.window
             .set_title(Some(&format!("Bloui — {}", name.unwrap_or_default())));
+        self.pipeline.set_pipeline(&pipeline);
         *self.doc.borrow_mut() = Doc {
-            pipeline,
+            history: History::new(pipeline),
             base_dir: dir,
             project,
             reports: Vec::new(),
         };
         // A new document: start from the root.
         *self.view.borrow_mut() = None;
+        self.update_undo();
         self.run(false);
+    }
+
+    fn undo_redo(self: &Rc<Self>, undo: bool) {
+        let pipeline = {
+            let mut doc = self.doc.borrow_mut();
+            let done = if undo {
+                doc.history.undo()
+            } else {
+                doc.history.redo()
+            };
+            if !done {
+                return;
+            }
+            doc.history.current().clone()
+        };
+        self.pipeline.set_pipeline(&pipeline);
+        self.update_undo();
+        self.schedule_run();
+    }
+
+    fn update_undo(&self) {
+        let doc = self.doc.borrow();
+        for (name, on) in [
+            ("undo", doc.history.can_undo()),
+            ("redo", doc.history.can_redo()),
+        ] {
+            if let Some(a) = self
+                .window
+                .lookup_action(name)
+                .and_downcast::<gio::SimpleAction>()
+            {
+                a.set_enabled(on);
+            }
+        }
+    }
+
+    /// Run soon, once edits pause (typing in a field gives many edits).
+    fn schedule_run(self: &Rc<Self>) {
+        if let Some(id) = self.pending.take() {
+            id.remove();
+        }
+        let weak = Rc::downgrade(self);
+        let id = glib::timeout_add_local_once(std::time::Duration::from_millis(150), move || {
+            if let Some(this) = weak.upgrade() {
+                this.pending.take();
+                this.run(false);
+            }
+        });
+        self.pending.replace(Some(id));
     }
 
     fn run(self: &Rc<Self>, reload: bool) {
         let (pipeline, base_dir) = {
             let doc = self.doc.borrow();
-            if doc.pipeline.stages.is_empty() {
-                return;
-            }
-            (doc.pipeline.clone(), doc.base_dir.clone())
+            (doc.history.current().clone(), doc.base_dir.clone())
         };
         let generation = self.generation.get() + 1;
         self.generation.set(generation);
@@ -322,6 +410,7 @@ impl Window {
         self.set_tree(tree);
         self.update_levels();
         self.update_notes();
+        self.update_pipeline_pane();
         self.stack.set_visible_child_name("content");
     }
 
@@ -346,6 +435,16 @@ impl Window {
             return;
         };
         self.set_tree(resorted(&tree, self.selected_metric()));
+        self.update_pipeline_pane();
+    }
+
+    fn update_pipeline_pane(&self) {
+        let levels = self
+            .with_view(|v| v.tree().levels.iter().map(|l| l.name.clone()).collect())
+            .unwrap_or_default();
+        let doc = self.doc.borrow();
+        self.pipeline
+            .set_reports(&doc.reports, self.selected_metric(), levels);
     }
 
     /// Fill "Color by" with the tree's levels, keeping the choice.
@@ -402,7 +501,12 @@ impl Window {
         let doc = self.doc.borrow();
         let mut lines = Vec::new();
         let mut problems = 0;
-        for (i, (report, stage)) in doc.reports.iter().zip(&doc.pipeline.stages).enumerate() {
+        for (i, (report, stage)) in doc
+            .reports
+            .iter()
+            .zip(&doc.history.current().stages)
+            .enumerate()
+        {
             let what = format!("Stage {} ({})", i + 1, stage.id);
             match &report.status {
                 StageStatus::Failed(e) => {
@@ -468,7 +572,7 @@ impl Window {
     }
 
     fn save_dialog(self: &Rc<Self>) {
-        if self.doc.borrow().pipeline.stages.is_empty() {
+        if self.doc.borrow().history.current().stages.is_empty() {
             return;
         }
         let name = {
@@ -496,13 +600,18 @@ impl Window {
     fn save_to(&self, path: &Path) {
         let dir = path.parent().map_or_else(PathBuf::new, Path::to_path_buf);
         let mut doc = self.doc.borrow_mut();
-        let mut pipeline = doc.pipeline.clone();
-        bloui::project::rebase_paths(&mut pipeline, &Registry::builtin(), &doc.base_dir, &dir);
+        let mut pipeline = doc.history.current().clone();
+        let from = doc.base_dir.clone();
+        bloui::project::rebase_paths(&mut pipeline, &self.registry, &from, &dir);
         match bloui::project::save(path, &pipeline) {
             Ok(()) => {
-                doc.pipeline = pipeline;
+                // Paths in the undo steps must keep working too.
+                doc.history
+                    .map_all(|p| bloui::project::rebase_paths(p, &self.registry, &from, &dir));
                 doc.base_dir = dir;
                 doc.project = Some(path.to_owned());
+                drop(doc);
+                self.pipeline.set_pipeline(&pipeline);
             }
             Err(e) => {
                 drop(doc);

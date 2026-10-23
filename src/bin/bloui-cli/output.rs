@@ -138,7 +138,13 @@ pub fn csv(out: &mut String, tree: &AnalysisTree, o: &Options) {
     }
 }
 
-pub fn stats(out: &mut String, pipeline: &Pipeline, reports: &[StageReport], o: &Options) {
+pub fn stats(
+    out: &mut String,
+    pipeline: &Pipeline,
+    reports: &[StageReport],
+    registry: &Registry,
+    o: &Options,
+) {
     let _ = writeln!(out, "Pipeline ({}):", o.sort.name());
     for (i, (stage, r)) in pipeline.stages.iter().zip(reports).enumerate() {
         let status = match &r.status {
@@ -155,9 +161,9 @@ pub fn stats(out: &mut String, pipeline: &Pipeline, reports: &[StageReport], o: 
         };
         let _ = writeln!(
             out,
-            "  {:>2}. {:<14} {:>9} → {:<9} {:>9}  {status}",
+            "  {:>2}. {:<24} {:>9} → {:<9} {:>9}  {status}",
             i + 1,
-            stage.id,
+            bloui::pipeline::summary(stage, registry),
             o.size(input),
             o.size(output),
             delta
@@ -201,6 +207,9 @@ fn describe_param(p: &ParamSpec) -> String {
     }
     if !p.help.is_empty() {
         let _ = write!(s, ". {}", p.help);
+    }
+    if let Some((key, value)) = p.visible_when {
+        let _ = write!(s, " (when {key}={value})");
     }
     s
 }

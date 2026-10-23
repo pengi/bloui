@@ -26,6 +26,12 @@ impl StageFactory for FreeSpace {
             ParamSpec::text("binary", "Input", "").help("Name of the input; all if empty"),
         ]
     }
+    fn summary(&self, p: &ParamValues, _registry: &Registry) -> String {
+        match p.list("regions") {
+            [] => "free space".into(),
+            r => format!("free space in {}", r.join(", ")),
+        }
+    }
     fn create(&self, params: &ParamValues, _registry: &Registry) -> Result<Box<dyn Stage>> {
         Ok(Box::new(Free {
             regions: params.list("regions").to_vec(),

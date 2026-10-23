@@ -1,9 +1,9 @@
 Pipeline (memory):
-   1. open-file              0 → 3.04Ki      +3.04Ki  ok
+   1. open fw.elf                      0 → 3.04Ki      +3.04Ki  ok
       attached ./cortexm/fw.map
-   2. filter-label      3.04Ki → 3.04Ki           +0  ok
-   3. split             3.04Ki → 3.04Ki           +0  ok
-   4. split             3.04Ki → 3.04Ki           +0  ok
+   2. exclude section ~ ^\.debug    3.04Ki → 3.04Ki           +0  ok
+   3. split by segment            3.04Ki → 3.04Ki           +0  ok
+   4. split by category           3.04Ki → 3.04Ki           +0  ok
 
      FILE    MEMORY      LOAD      %M  segment › category
    11.3Ki    3.04Ki    1.63Ki  100.0%  TOTAL

@@ -189,7 +189,7 @@ fn run(cli: &Cli, matches: &ArgMatches) -> Result<ExitCode, String> {
     };
     let mut out = String::new();
     if cli.stats {
-        output::stats(&mut out, &pipeline, &result.reports, &opts);
+        output::stats(&mut out, &pipeline, &result.reports, &registry, &opts);
     }
     if cli.csv {
         output::csv(&mut out, &tree, &opts);

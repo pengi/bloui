@@ -222,3 +222,39 @@ fn bad_stage_is_reported() {
     assert_eq!(r.errors().count(), 2);
     assert_eq!(r.state.set.levels.len(), 0);
 }
+
+#[test]
+fn stage_summaries() {
+    let reg = bloui::registry::Registry::builtin();
+    let sum = |s: &bloui::pipeline::StageConfig| bloui::pipeline::summary(s, &reg);
+    assert_eq!(sum(&open(FW)), "open fw.elf");
+    assert_eq!(sum(&split("section")), "split by section");
+    let sym = ParamValue::Map(
+        bloui::param::ParamValues::new()
+            .with("id", text("symbol"))
+            .with("fallback", text("none")),
+    );
+    assert_eq!(
+        sum(&stage("split", &[("dimension", sym)])),
+        "split by symbol (fallback=none)"
+    );
+    let excl = stage(
+        "filter-label",
+        &[("patterns", ParamValue::List(vec!["^\\.debug".into()]))],
+    );
+    assert_eq!(sum(&excl), "exclude section ~ ^\\.debug");
+    assert_eq!(
+        sum(&stage("filter-space", &[("keep", text("load"))])),
+        "keep load"
+    );
+    assert_eq!(
+        sum(&stage(
+            "memory-regions",
+            &[("regions", text("FLASH:0:64K"))]
+        )),
+        "regions FLASH"
+    );
+    assert_eq!(sum(&stage("free-space", &[])), "free space");
+    assert_eq!(sum(&stage("nope", &[])), "nope");
+    assert_eq!(sum(&stage("split", &[("x", text("y"))])), "split (invalid)");
+}

@@ -13,10 +13,22 @@ next to `fw.elf` is found automatically) the memory-region and free-space
 stages are skipped; the status bar then says "2 notes", and its tooltip
 says why. A project file brings its own pipeline (see
 [project files](project-files.md)). Opening another file replaces the
-current one.
+current one. Either way, the pipeline can then be changed in the
+pipeline pane, and the result follows every change.
 
 ## Layout
 
+- **Pipeline pane** (left, F9 hides it): the stages, top to bottom.
+  Each row has a checkbox to turn the stage on or off, an icon for its
+  kind, a summary ("split by section", "exclude section ~ ^\.debug"), what
+  it changed in the current metric ("−1.29Ki", "+62.4Ki"), and a warning
+  or error icon (with the reason as tooltip) when the stage was skipped
+  or failed. The toolbar has undo, redo, move up, move down, remove, and
+  **+**, which adds a stage after the selected one. Below the list is a
+  form with the selected stage's parameters. Fields with a bad value
+  (like `4Q` for a size) turn red and say why in their tooltip; the
+  pipeline runs again with every valid change. Sizes and addresses take
+  `4096`, `0x1000`, `4K`, `1.5M`.
 - **Header bar**: open, save (Ctrl+S; Ctrl+Shift+S saves under a new
   name), zoom out, the **metric** (file, memory or load, see
   [concepts](concepts.md)), **color by** (the tree level whose labels pick
@@ -41,6 +53,8 @@ current one.
 | Treemap   | Up                          | select the parent                  |
 | Tree list | select a row                | select it in the treemap           |
 | Tree list | double-click, Enter         | zoom to that node                  |
+| Anywhere  | Ctrl+Z, Ctrl+Shift+Z        | undo, redo pipeline edits          |
+| Anywhere  | F9                          | show or hide the pipeline pane     |
 
 Selection, zoom and expanded rows are kept by path when the result
 changes (reload, metric).

@@ -59,6 +59,12 @@ impl StageFactory for LinkerMap {
             ParamSpec::text("binary", "Input", "").help("Name of the input; the last one if empty"),
         ]
     }
+    fn summary(&self, p: &ParamValues, _registry: &Registry) -> String {
+        match Path::new(p.text("path")).file_name() {
+            Some(n) => format!("map {}", n.to_string_lossy()),
+            None => "map (next to the input)".into(),
+        }
+    }
     fn create(&self, params: &ParamValues, _registry: &Registry) -> Result<Box<dyn Stage>> {
         Ok(Box::new(AttachMap {
             path: PathBuf::from(params.text("path")),
@@ -136,6 +142,14 @@ impl StageFactory for MemoryRegions {
             .help("On the command line: NAME:ORIGIN:LENGTH, e.g. FLASH:0x08000000:64K"),
             ParamSpec::text("binary", "Input", "").help("Name of the input; all if empty"),
         ]
+    }
+    fn summary(&self, p: &ParamValues, _registry: &Registry) -> String {
+        let names: Vec<&str> = p.table("regions").iter().map(|r| r.text("name")).collect();
+        if names.is_empty() {
+            "regions (none)".into()
+        } else {
+            format!("regions {}", names.join(", "))
+        }
     }
     fn create(&self, params: &ParamValues, _registry: &Registry) -> Result<Box<dyn Stage>> {
         let mut regions = Vec::new();

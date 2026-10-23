@@ -21,8 +21,7 @@ pub struct Worker {
 }
 
 impl Worker {
-    pub fn new() -> Self {
-        let registry = Arc::new(Registry::builtin());
+    pub fn new(registry: Arc<Registry>) -> Self {
         Worker {
             runner: Arc::new(Mutex::new(Runner::new(registry))),
         }

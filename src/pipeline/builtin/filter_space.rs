@@ -47,6 +47,16 @@ impl StageFactory for FilterSpace {
             ParamSpec::address("end", "Range end").help("Empty: to the end"),
         ]
     }
+    fn summary(&self, p: &ParamValues, _registry: &Registry) -> String {
+        let mut s = format!("keep {}", p.text("keep"));
+        let (start, end) = (p.opt_u64("start"), p.opt_u64("end"));
+        if start.is_some() || end.is_some() {
+            let a = start.map_or(String::new(), |a| format!("{a:#x}"));
+            let b = end.map_or(String::new(), |b| format!("{b:#x}"));
+            s.push_str(&format!(" in {} {a}..{b}", p.text("space")));
+        }
+        s
+    }
     fn create(&self, params: &ParamValues, _registry: &Registry) -> Result<Box<dyn Stage>> {
         let space = match params.text("space") {
             "lma" => AddrSpace::Lma,
