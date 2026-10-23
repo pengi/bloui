@@ -53,6 +53,9 @@ src/
   project/     *.bloui.toml load/save
   render/      treemap layouts and hit testing, cushion shading, colors,
                images (PNG), scenes (display lists for frontends)
+  view/        view state (selection, hover, zoom, keeps them across
+               reruns) and the cached treemap view; frontends forward
+               input here and paint the scene
   bin/bloui/       GTK frontend
   bin/bloui-cli/   text frontend
 ```
@@ -90,6 +93,7 @@ reruns keep the same binary and its cached labels. Stages report with
   address.
 - `tests/render.rs`: layout invariants (inside bounds, areas proportional,
   no overlaps), hit testing against brute force, cushion rendering.
+- `tests/view.rs`: zoom/selection, surviving a rerun, treemap view caching.
 - `tests/cli.rs`: snapshots of `bloui-cli` output in `tests/snapshots/`.
   After an intended output change, run `BLOUI_BLESS=1 cargo test --test cli`
   and review the diff.
