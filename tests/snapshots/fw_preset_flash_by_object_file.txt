@@ -1,0 +1,9 @@
+     FILE    MEMORY      LOAD      %L  object file › symbol
+     1668      1668      1668  100.0%  TOTAL
+      844       844       844   50.6%  ├─ libgcc.a
+      311       311       311   18.6%  ├─ main.o
+      221       221       221   13.2%  ├─ uart.o
+      162       162       162    9.7%  ├─ vectors.o
+       64        64        64    3.8%  ├─ libhal.a
+       64        64        64    3.8%  ├─ startup.o
+        2         2         2    0.1%  └─ [fill]

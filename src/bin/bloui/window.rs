@@ -12,6 +12,7 @@ use bloui::engine::{AnalysisTree, ColorLabels, StageReport, StageStatus};
 use bloui::model::Metric;
 use bloui::param::DimRef;
 use bloui::pipeline::History;
+use bloui::project::{Project, ViewSettings, preset};
 use bloui::registry::Registry;
 use bloui::render::ColorBy;
 use bloui::view::ViewState;
@@ -30,6 +31,8 @@ struct Doc {
     base_dir: PathBuf,
     /// The project file, once opened or saved.
     project: Option<PathBuf>,
+    /// The project's description, kept when saving.
+    description: Option<String>,
     /// The latest stage reports.
     reports: Vec<StageReport>,
 }
@@ -60,6 +63,7 @@ pub struct Window {
     updating_colors: Cell<bool>,
     legend: Rc<Legend>,
     zoom_out: gtk::Button,
+    presets: gtk::MenuButton,
     view: SharedView,
     doc: RefCell<Doc>,
     worker: Worker,
@@ -104,6 +108,11 @@ impl Window {
         reload.set_action_name(Some("win.reload"));
         header.pack_start(&open);
         header.pack_start(&save);
+        let presets = gtk::MenuButton::builder()
+            .label("Presets")
+            .tooltip_text("Apply a preset to the open inputs, or save one")
+            .build();
+        header.pack_start(&presets);
         header.pack_end(&reload);
         header.pack_end(&labeled("Color by", &color_by));
         header.pack_end(&labeled("Metric", &metric));
@@ -185,6 +194,7 @@ impl Window {
             updating_colors: Cell::new(false),
             legend,
             zoom_out,
+            presets,
             view,
             doc: RefCell::new(Doc::default()),
             worker: Worker::new(registry.clone()),
@@ -193,6 +203,12 @@ impl Window {
             registry,
         });
         this.setup_actions(app);
+        let weak = Rc::downgrade(&this);
+        this.presets.set_create_popup_func(move |b| {
+            if let Some(this) = weak.upgrade() {
+                this.fill_presets(b);
+            }
+        });
         this.connect_signals();
         // Closures only hold weak references; the window keeps this alive
         // until it closes.
@@ -219,6 +235,7 @@ impl Window {
         action("save", Window::save);
         action("save-as", Window::save_dialog);
         action("reload", |w| w.run(true));
+        action("save-preset", Window::save_preset_dialog);
         action("undo", |w| w.undo_redo(true));
         action("redo", |w| w.undo_redo(false));
         action("toggle-pipeline", |w| {
@@ -382,7 +399,7 @@ impl Window {
     pub fn open(self: &Rc<Self>, path: &Path) {
         let path = std::path::absolute(path).unwrap_or_else(|_| path.to_owned());
         let dir = path.parent().map_or_else(PathBuf::new, Path::to_path_buf);
-        let (pipeline, project) = if bloui::project::is_project(&path) {
+        let (loaded, project) = if bloui::project::is_project(&path) {
             match bloui::project::load(&path) {
                 Ok(p) => (p, Some(path.clone())),
                 Err(e) => {
@@ -391,8 +408,13 @@ impl Window {
                 }
             }
         } else {
-            (bloui::project::for_input(&path), None)
+            (Project::from(bloui::project::for_input(&path)), None)
         };
+        let Project {
+            description,
+            view,
+            pipeline,
+        } = loaded;
         let name = path.file_name().map(|n| n.to_string_lossy().into_owned());
         self.window
             .set_title(Some(&format!("Bloui — {}", name.unwrap_or_default())));
@@ -401,12 +423,189 @@ impl Window {
             history: History::new(pipeline),
             base_dir: dir,
             project,
+            description,
             reports: Vec::new(),
         };
         // A new document: start from the root.
         *self.view.borrow_mut() = None;
+        self.apply_view_settings(&view);
         self.update_undo();
         self.run(false);
+    }
+
+    /// Take a project's or preset's metric and color choice.
+    fn apply_view_settings(&self, view: &ViewSettings) {
+        if let Some(m) = view.metric
+            && let Some(i) = Metric::ALL.iter().position(|&x| x == m)
+        {
+            self.metric.set_selected(i as u32);
+        }
+        if let Some(c) = &view.color_by {
+            let choice = match self.registry.dimension(c) {
+                Some(d) => ColorChoice::Dim(d.id()),
+                None => ColorChoice::Level(c.clone()),
+            };
+            self.color_choice.replace(choice);
+        }
+    }
+
+    /// The current metric and color choice, for saving.
+    fn view_settings(&self) -> ViewSettings {
+        let color_by = match &*self.color_choice.borrow() {
+            ColorChoice::Level(name) if name.is_empty() => None,
+            ColorChoice::Level(name) => Some(name.clone()),
+            ColorChoice::Dim(id) => Some((*id).to_owned()),
+        };
+        ViewSettings {
+            metric: Some(self.selected_metric()),
+            color_by,
+        }
+    }
+
+    fn project(&self) -> Project {
+        let doc = self.doc.borrow();
+        Project {
+            description: doc.description.clone(),
+            view: self.view_settings(),
+            pipeline: doc.history.current().clone(),
+        }
+    }
+
+    /// Replace the stages after the inputs with a preset's.
+    fn apply_preset(self: &Rc<Self>, p: &preset::Preset) {
+        let pipeline = {
+            let mut doc = self.doc.borrow_mut();
+            let new = preset::apply(doc.history.current(), &p.project.pipeline, &self.registry);
+            if !doc.history.edit(new, None) {
+                return;
+            }
+            doc.history.current().clone()
+        };
+        self.apply_view_settings(&p.project.view);
+        self.pipeline.set_pipeline(&pipeline);
+        self.update_undo();
+        self.schedule_run();
+    }
+
+    /// The presets menu, made each time it opens (user presets change).
+    fn fill_presets(self: &Rc<Self>, button: &gtk::MenuButton) {
+        let (presets, errors) = preset::all(preset::user_dir().as_deref());
+        let list = gtk::ListBox::new();
+        list.set_selection_mode(gtk::SelectionMode::None);
+        list.set_activate_on_single_click(true);
+        for p in &presets {
+            let b = gtk::Box::new(gtk::Orientation::Vertical, 0);
+            let kind = if p.builtin { "" } else { "  (yours)" };
+            let name = gtk::Label::builder()
+                .label(format!("{}{kind}", p.name))
+                .xalign(0.0)
+                .build();
+            let desc = gtk::Label::builder()
+                .label(p.project.description.as_deref().unwrap_or(""))
+                .xalign(0.0)
+                .wrap(true)
+                .max_width_chars(50)
+                .build();
+            desc.add_css_class("dim-label");
+            desc.add_css_class("caption");
+            b.append(&name);
+            b.append(&desc);
+            list.append(&b);
+        }
+        let popover = gtk::Popover::new();
+        let content = gtk::Box::new(gtk::Orientation::Vertical, 6);
+        content.append(&list);
+        for e in &errors {
+            let l = gtk::Label::builder()
+                .label(e.to_string())
+                .xalign(0.0)
+                .wrap(true)
+                .max_width_chars(50)
+                .build();
+            l.add_css_class("error");
+            content.append(&l);
+        }
+        let save = gtk::Button::with_label("Save as preset…");
+        save.set_action_name(Some("win.save-preset"));
+        content.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
+        content.append(&save);
+        popover.set_child(Some(&content));
+        let (weak, pop) = (Rc::downgrade(self), popover.clone());
+        list.connect_row_activated(move |_, row| {
+            pop.popdown();
+            if let (Some(this), Some(p)) = (weak.upgrade(), presets.get(row.index() as usize)) {
+                this.apply_preset(p);
+            }
+        });
+        let pop = popover.clone();
+        save.connect_clicked(move |_| pop.popdown());
+        button.set_popover(Some(&popover));
+    }
+
+    /// Ask for a name, and save the pipeline without inputs as a preset.
+    fn save_preset_dialog(self: &Rc<Self>) {
+        let Some(dir) = preset::user_dir() else {
+            self.error(
+                "Can't save presets",
+                "No config directory: HOME is not set.",
+            );
+            return;
+        };
+        let dialog = gtk::Window::builder()
+            .title("Save as preset")
+            .modal(true)
+            .transient_for(&self.window)
+            .resizable(false)
+            .build();
+        let entry = gtk::Entry::builder()
+            .placeholder_text("Name")
+            .activates_default(true)
+            .build();
+        let desc = gtk::Entry::builder()
+            .placeholder_text("Description (optional)")
+            .activates_default(true)
+            .build();
+        let hint = gtk::Label::builder()
+            .label(format!("Saved in {}", dir.display()))
+            .xalign(0.0)
+            .wrap(true)
+            .wrap_mode(gtk::pango::WrapMode::WordChar)
+            .max_width_chars(40)
+            .build();
+        hint.add_css_class("dim-label");
+        let save = gtk::Button::with_label("Save");
+        save.add_css_class("suggested-action");
+        let cancel = gtk::Button::with_label("Cancel");
+        let buttons = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+        buttons.set_halign(gtk::Align::End);
+        buttons.append(&cancel);
+        buttons.append(&save);
+        let b = gtk::Box::new(gtk::Orientation::Vertical, 8);
+        b.set_margin_start(12);
+        b.set_margin_end(12);
+        b.set_margin_top(12);
+        b.set_margin_bottom(12);
+        b.append(&entry);
+        b.append(&desc);
+        b.append(&hint);
+        b.append(&buttons);
+        dialog.set_child(Some(&b));
+        dialog.set_default_widget(Some(&save));
+        let d = dialog.clone();
+        cancel.connect_clicked(move |_| d.close());
+        let (weak, d) = (Rc::downgrade(self), dialog.clone());
+        save.connect_clicked(move |_| {
+            let Some(this) = weak.upgrade() else { return };
+            let name = entry.text().trim().to_owned();
+            let mut project = this.project();
+            let text = desc.text();
+            project.description = (!text.is_empty()).then(|| text.to_string());
+            match preset::save(&dir, &name, &project, &this.registry) {
+                Ok(_) => d.close(),
+                Err(e) => this.error("Could not save the preset", &e.to_string()),
+            }
+        });
+        dialog.present();
     }
 
     fn undo_redo(self: &Rc<Self>, undo: bool) {
@@ -744,11 +943,12 @@ impl Window {
 
     fn save_to(&self, path: &Path) {
         let dir = path.parent().map_or_else(PathBuf::new, Path::to_path_buf);
+        let mut project = self.project();
         let mut doc = self.doc.borrow_mut();
-        let mut pipeline = doc.history.current().clone();
         let from = doc.base_dir.clone();
-        bloui::project::rebase_paths(&mut pipeline, &self.registry, &from, &dir);
-        match bloui::project::save(path, &pipeline) {
+        bloui::project::rebase_paths(&mut project.pipeline, &self.registry, &from, &dir);
+        let pipeline = project.pipeline.clone();
+        match bloui::project::save(path, &project) {
             Ok(()) => {
                 // Paths in the undo steps must keep working too.
                 doc.history

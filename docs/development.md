@@ -129,9 +129,13 @@ Run the GUI on a nested X server, not your own desktop:
 
 ```sh
 Xephyr :7 -screen 1200x800 -br -ac &
-DISPLAY=:7 GDK_BACKEND=x11 HOME=/tmp/bloui-home cargo run --bin bloui
+DISPLAY=:7 GDK_BACKEND=x11 GDK_DEBUG=no-portals GTK_A11Y=none \
+    DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent HOME=/tmp/bloui-home \
+    target/debug/bloui
 DISPLAY=:7 import -window root shot.png
 ```
 
-Keyboard input via `xdotool` needs `xdotool windowfocus --sync <window>`
+Without a session bus, file dialogs stay inside Xephyr (GTK uses its own
+chooser); with yours, GTK asks the desktop portal and the dialog opens on
+your own desktop. Keyboard input via `xdotool` needs `xdotool windowfocus --sync <window>`
 first, as there is no window manager.

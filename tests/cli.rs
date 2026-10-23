@@ -73,6 +73,23 @@ fn fw_legend_by_object_file() {
 }
 
 #[test]
+fn fw_preset_flash_by_object_file() {
+    // The preset's view sets the metric to load.
+    cli(
+        "fw_preset_flash_by_object_file",
+        &[
+            "-i",
+            "cortexm/fw.elf",
+            "-p",
+            "flash-by-object-file",
+            "-d",
+            "1",
+            "--bytes",
+        ],
+    );
+}
+
+#[test]
 fn fw_flash_symbols() {
     cli(
         "fw_flash_symbols",

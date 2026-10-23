@@ -21,18 +21,21 @@ the stages given as options, **in command-line order**:
 | `--region NAME:ORIGIN:LENGTH` | `memory-regions`; repeat for more, they form one stage |
 | `--free` | `free-space` |
 | `-S, --stage 'ID K=V ..'` | any stage, see below |
+| `-p, --preset NAME` | all stages of a preset (see `--list-presets` and [project files](project-files.md#presets)) |
 
 Output options:
 
 | Option | Meaning |
 |--------|---------|
-| `-m, --sort METRIC` | sort by `file`, `memory` (default) or `load`; the `%` column uses it too |
+| `-m, --sort METRIC` | sort by `file`, `memory` or `load`; the `%` column uses it too. Default: the project's or preset's `[view]`, else `memory` |
 | `-d, --depth N` | show at most N levels |
 | `-n, --limit N` | show at most N children per node, the rest as `[k more]` (default 20, 0 = all) |
 | `--bytes` | exact byte counts instead of `1.23Ki` |
 | `--csv` | CSV, one row per leaf, one column per level |
 | `--stats` | what each stage did, before the tree |
-| `--save FILE` | save the pipeline as a project file |
+| `--save FILE` | save the pipeline (and `-m`, `--color-by`) as a project file; relative paths are rewritten for the file's directory |
+| `--save-preset NAME` | save the pipeline without its inputs as a user preset |
+| `--list-presets` | list the built-in and user presets |
 | `--list` | list all stages and dimensions with their parameters |
 | `--treemap FILE.png` | also render a cushion treemap (by the `--sort` metric) |
 | `--size WxH` | treemap size in pixels (default `1024x640`) |

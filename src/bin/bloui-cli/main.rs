@@ -6,7 +6,8 @@ mod output;
 use bloui::engine::{AnalysisTree, ColorLabels, Runner, StageStatus};
 use bloui::model::Metric;
 use bloui::param::{ParamKind, ParamValue, ParamValues};
-use bloui::pipeline::{Pipeline, StageConfig};
+use bloui::pipeline::StageConfig;
+use bloui::project::{Project, ViewSettings, preset};
 use bloui::registry::Registry;
 use bloui::render::ColorBy;
 use clap::{ArgMatches, CommandFactory, FromArgMatches, Parser};
@@ -65,14 +66,14 @@ struct Cli {
     #[arg(short = 'S', long, value_name = "'ID K=V ..'")]
     stage: Vec<String>,
 
-    /// Sort by, and show percentages of, this metric.
-    #[arg(
-        short = 'm',
-        long,
-        default_value = "memory",
-        value_name = "file|memory|load"
-    )]
-    sort: String,
+    /// Add the stages of a preset (see --list-presets).
+    #[arg(short, long, value_name = "NAME")]
+    preset: Vec<String>,
+
+    /// Sort by, and show percentages of, this metric. Default: the
+    /// project's or preset's, else memory.
+    #[arg(short = 'm', long, value_name = "file|memory|load")]
+    sort: Option<String>,
 
     /// Show at most this many tree levels.
     #[arg(short, long)]
@@ -112,16 +113,25 @@ struct Cli {
 
     /// Color treemap tiles (and the legend) by a tree level, by name or
     /// index, or by any dimension: `section`, `1`, `object-file:archives=flat`.
-    #[arg(long, default_value = "0", value_name = "LEVEL|DIM[:K=V,..]")]
-    color_by: String,
+    /// Default: the project's or preset's, else the first level.
+    #[arg(long, value_name = "LEVEL|DIM[:K=V,..]")]
+    color_by: Option<String>,
 
     /// Print a legend for the colors: labels with their sizes.
     #[arg(long)]
     legend: bool,
 
-    /// Save the pipeline as a project file.
+    /// Save the pipeline (and -m, --color-by) as a project file.
     #[arg(long, value_name = "FILE")]
     save: Option<PathBuf>,
+
+    /// Save the pipeline without its inputs as a user preset.
+    #[arg(long, value_name = "NAME")]
+    save_preset: Option<String>,
+
+    /// List the presets.
+    #[arg(long)]
+    list_presets: bool,
 }
 
 fn main() -> ExitCode {
@@ -145,23 +155,53 @@ fn run(cli: &Cli, matches: &ArgMatches) -> Result<ExitCode, String> {
         output::list(&registry);
         return Ok(ExitCode::SUCCESS);
     }
-    let sort = Metric::from_name(&cli.sort).ok_or(format!("unknown metric '{}'", cli.sort))?;
+    let preset_dir = preset::user_dir();
+    if cli.list_presets {
+        output::presets(&preset::all(preset_dir.as_deref()), &registry);
+        return Ok(ExitCode::SUCCESS);
+    }
 
-    let mut pipeline = Pipeline::default();
+    let mut project = Project::default();
     let mut base_dir = PathBuf::from(".");
     if let Some(p) = &cli.project {
-        pipeline = bloui::project::load(p).map_err(|e| e.to_string())?;
+        project = bloui::project::load(p).map_err(|e| e.to_string())?;
         base_dir = p.parent().map_or_else(|| ".".into(), Path::to_path_buf);
     }
-    pipeline.stages.extend(inline_stages(
+    let mut view = project.view.clone();
+    let mut pipeline = project.pipeline;
+    let (stages, preset_view) = inline_stages(
         cli,
         matches,
         &registry,
+        preset_dir.as_deref(),
         cli.project.is_some(),
-    )?);
-    if let Some(path) = &cli.save {
-        bloui::project::save(path, &pipeline).map_err(|e| e.to_string())?;
+    )?;
+    pipeline.stages.extend(stages);
+    // Options win over presets, presets over the project file.
+    for v in [Some(preset_view), cli_view(cli)?].into_iter().flatten() {
+        view.metric = v.metric.or(view.metric);
+        view.color_by = v.color_by.or(view.color_by);
     }
+    let sort = view.metric.unwrap_or_default();
+    let project = Project {
+        description: project.description,
+        view: view.clone(),
+        pipeline,
+    };
+    if let Some(path) = &cli.save {
+        // Paths are relative to `base_dir`; in the file, to its directory.
+        let abs = |p: &Path| std::path::absolute(p).map_err(|e| e.to_string());
+        let dir = abs(path.parent().unwrap_or(Path::new(".")))?;
+        let mut saved = project.clone();
+        bloui::project::rebase_paths(&mut saved.pipeline, &registry, &abs(&base_dir)?, &dir);
+        bloui::project::save(path, &saved).map_err(|e| e.to_string())?;
+    }
+    if let Some(name) = &cli.save_preset {
+        let dir = preset_dir.ok_or("no config directory: set HOME or XDG_CONFIG_HOME")?;
+        let path = preset::save(&dir, name, &project, &registry).map_err(|e| e.to_string())?;
+        eprintln!("bloui-cli: saved preset '{name}' as {}", path.display());
+    }
+    let pipeline = project.pipeline;
     if !pipeline.stages.iter().any(|s| s.id == "open-file") {
         return Err("no input: use -i FILE or a project file (see --help)".into());
     }
@@ -203,7 +243,8 @@ fn run(cli: &Cli, matches: &ArgMatches) -> Result<ExitCode, String> {
         output::tree(&mut out, &tree, &opts);
     }
     let color_by = if cli.legend || cli.treemap.is_some() {
-        color_by(&cli.color_by, &tree, &mut runner, &result.state)?
+        let text = view.color_by.as_deref().unwrap_or("0");
+        color_by(text, &tree, &mut runner, &result.state)?
     } else {
         ColorBy::default()
     };
@@ -213,7 +254,7 @@ fn run(cli: &Cli, matches: &ArgMatches) -> Result<ExitCode, String> {
     }
     print!("{out}");
     if let Some(path) = &cli.treemap {
-        treemap(cli, &tree, &color_by, path)?;
+        treemap(cli, &tree, &color_by, sort, path)?;
     }
     Ok(if failed {
         ExitCode::FAILURE
@@ -222,13 +263,27 @@ fn run(cli: &Cli, matches: &ArgMatches) -> Result<ExitCode, String> {
     })
 }
 
-/// The stages given as options, in command-line order.
+/// View settings given as options.
+fn cli_view(cli: &Cli) -> Result<Option<ViewSettings>, String> {
+    let metric = match &cli.sort {
+        Some(m) => Some(Metric::from_name(m).ok_or(format!("unknown metric '{m}'"))?),
+        None => None,
+    };
+    Ok(Some(ViewSettings {
+        metric,
+        color_by: cli.color_by.clone(),
+    }))
+}
+
+/// The stages given as options, in command-line order, and the view
+/// settings of the presets among them.
 fn inline_stages(
     cli: &Cli,
     matches: &ArgMatches,
     registry: &Registry,
+    preset_dir: Option<&Path>,
     absolute_inputs: bool,
-) -> Result<Vec<StageConfig>, String> {
+) -> Result<(Vec<StageConfig>, ViewSettings), String> {
     let mut stages: Vec<(usize, StageConfig)> = Vec::new();
     let mut add =
         |id: &str, values: &[String], f: &mut dyn FnMut(&str) -> Result<StageConfig, String>| {
@@ -306,8 +361,19 @@ fn inline_stages(
     if let Some(i) = matches.index_of("free").filter(|_| cli.free) {
         stages.push((i, StageConfig::new("free-space", ParamValues::new())));
     }
+    let mut view = ViewSettings::default();
+    let indices = matches.indices_of("preset").into_iter().flatten();
+    for (name, i) in cli.preset.iter().zip(indices) {
+        let p = preset::find(name, preset_dir)
+            .ok_or(format!("unknown preset '{name}' (see --list-presets)"))?;
+        let p_stages = preset::strip_inputs(&p.project.pipeline, registry).stages;
+        stages.extend(p_stages.into_iter().map(|s| (i, s)));
+        view.metric = p.project.view.metric.or(view.metric);
+        view.color_by = p.project.view.color_by.or(view.color_by);
+    }
+    // Stable: a preset's stages keep their order.
     stages.sort_by_key(|(i, _)| *i);
-    Ok(stages.into_iter().map(|(_, s)| s).collect())
+    Ok((stages.into_iter().map(|(_, s)| s).collect(), view))
 }
 
 /// `symbol:fallback=none,x=y` → a dimension value.
@@ -388,7 +454,13 @@ fn color_by(
     Ok(ColorBy::Labels(Arc::new(labels)))
 }
 
-fn treemap(cli: &Cli, tree: &AnalysisTree, color_by: &ColorBy, path: &Path) -> Result<(), String> {
+fn treemap(
+    cli: &Cli,
+    tree: &AnalysisTree,
+    color_by: &ColorBy,
+    sort: Metric,
+    path: &Path,
+) -> Result<(), String> {
     use bloui::render::{self, LayoutOptions, Rect, TreemapLayout};
     let (w, h) = cli
         .size
@@ -401,7 +473,6 @@ fn treemap(cli: &Cli, tree: &AnalysisTree, color_by: &ColorBy, path: &Path) -> R
         "slice" => &render::SliceAndDice,
         l => return Err(format!("unknown layout '{l}'")),
     };
-    let sort = Metric::from_name(&cli.sort).unwrap_or_default();
     let bounds = Rect::new(0.0, 0.0, w as f64, h as f64);
     let map = layout.layout(
         tree,

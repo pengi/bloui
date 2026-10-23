@@ -229,6 +229,23 @@ fn describe_param(p: &ParamSpec) -> String {
     s
 }
 
+pub fn presets(
+    (presets, errors): &(Vec<bloui::project::preset::Preset>, Vec<bloui::Error>),
+    registry: &Registry,
+) {
+    for p in presets {
+        let kind = if p.builtin { "built-in" } else { "user" };
+        let desc = p.project.description.as_deref().unwrap_or("");
+        println!("{:<22} [{kind}] {desc}", p.name);
+        for s in &p.project.pipeline.stages {
+            println!("      {}", bloui::pipeline::summary(s, registry));
+        }
+    }
+    for e in errors {
+        eprintln!("bloui-cli: {e}");
+    }
+}
+
 pub fn list(registry: &Registry) {
     println!("Stages:");
     for s in &registry.stages {

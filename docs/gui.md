@@ -30,7 +30,9 @@ pipeline pane, and the result follows every change.
   pipeline runs again with every valid change. Sizes and addresses take
   `4096`, `0x1000`, `4K`, `1.5M`.
 - **Header bar**: open, save (Ctrl+S; Ctrl+Shift+S saves under a new
-  name), zoom out, the **metric** (file, memory or load, see
+  name; the metric and color choice are saved too), **Presets** (apply a
+  [preset](project-files.md#presets) to the open inputs, or save the
+  current stages as one), zoom out, the **metric** (file, memory or load, see
   [concepts](concepts.md)), **color by**, and reload (F5), which reads the
   input files again. Color by is either a tree level (tiles take the
   color of their label at that level) or any dimension ("dimension:
