@@ -1,0 +1,142 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug executable 'bloui'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "run",
+                    "--bin=bloui"
+                ]
+            },
+            "args": []
+        },
+        {
+            "name": "Debug unit tests in library 'bloui'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test"
+                ]
+            }
+        },
+        {
+            "name": "Debug executable 'bloui'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "run",
+                    "--bin=bloui"
+                ]
+            },
+            "args": []
+        },
+        {
+            "name": "Debug unit tests in executable 'bloui'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--bin=bloui"
+                ]
+            }
+        },
+        {
+            "name": "Debug executable 'bloui-cli'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "run",
+                    "--bin=bloui-cli"
+                ]
+            },
+            "args": []
+        },
+        {
+            "name": "Debug unit tests in executable 'bloui-cli'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--bin=bloui-cli"
+                ]
+            }
+        },
+        {
+            "name": "Debug integration test 'cli'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--test=cli"
+                ]
+            }
+        },
+        {
+            "name": "Debug integration test 'elf_reader'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--test=elf_reader"
+                ]
+            }
+        },
+        {
+            "name": "Debug integration test 'embedded'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--test=embedded"
+                ]
+            }
+        },
+        {
+            "name": "Debug integration test 'engine'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--test=engine"
+                ]
+            }
+        },
+        {
+            "name": "Debug integration test 'render'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--test=render"
+                ]
+            }
+        },
+        {
+            "name": "Debug integration test 'view'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--test=view"
+                ]
+            }
+        }
+    ]
+}
