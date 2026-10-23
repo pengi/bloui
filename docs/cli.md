@@ -37,7 +37,8 @@ Output options:
 | `--treemap FILE.png` | also render a cushion treemap (by the `--sort` metric) |
 | `--size WxH` | treemap size in pixels (default `1024x640`) |
 | `--layout squarified\|slice` | treemap layout (default `squarified`) |
-| `--color-level N` | color treemap tiles by the label at tree level N (default 0) |
+| `--color-by L` | color treemap tiles by a tree level (name or index, default 0) or any dimension (`object-file:archives=flat`) |
+| `--legend` | print the colors' legend: labels with their sizes (up to 20, the rest as `[other]`) |
 
 If a stage fails, `bloui-cli` prints the error, shows the result without that
 stage, and exits with status 1. Warnings (a linker map that doesn't match)

@@ -6,6 +6,7 @@ use bloui::model::{Metric, Sizes, human};
 use bloui::param::{ParamKind, ParamSpec, ParamValue};
 use bloui::pipeline::Pipeline;
 use bloui::registry::Registry;
+use bloui::render::LegendEntry;
 use std::fmt::Write;
 
 pub struct Options {
@@ -173,6 +174,20 @@ pub fn stats(
         }
     }
     out.push('\n');
+}
+
+pub fn legend(out: &mut String, entries: &[LegendEntry], total: u64, o: &Options) {
+    let _ = writeln!(out, "\nLegend ({}):", o.sort.name());
+    for e in entries {
+        let _ = writeln!(
+            out,
+            "  {} {:>9} {:>6}  {}",
+            e.color.hex(),
+            o.size(e.size),
+            percent(e.size, total),
+            e.label
+        );
+    }
 }
 
 fn describe_param(p: &ParamSpec) -> String {

@@ -3,11 +3,12 @@
 
 mod output;
 
-use bloui::engine::{AnalysisTree, Runner, StageStatus};
+use bloui::engine::{AnalysisTree, ColorLabels, Runner, StageStatus};
 use bloui::model::Metric;
 use bloui::param::{ParamKind, ParamValue, ParamValues};
 use bloui::pipeline::{Pipeline, StageConfig};
 use bloui::registry::Registry;
+use bloui::render::ColorBy;
 use clap::{ArgMatches, CommandFactory, FromArgMatches, Parser};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -109,9 +110,14 @@ struct Cli {
     #[arg(long, default_value = "squarified", value_name = "squarified|slice")]
     layout: String,
 
-    /// Color treemap tiles by the label at this tree level.
-    #[arg(long, default_value_t = 0, value_name = "LEVEL")]
-    color_level: u32,
+    /// Color treemap tiles (and the legend) by a tree level, by name or
+    /// index, or by any dimension: `section`, `1`, `object-file:archives=flat`.
+    #[arg(long, default_value = "0", value_name = "LEVEL|DIM[:K=V,..]")]
+    color_by: String,
+
+    /// Print a legend for the colors: labels with their sizes.
+    #[arg(long)]
+    legend: bool,
 
     /// Save the pipeline as a project file.
     #[arg(long, value_name = "FILE")]
@@ -196,9 +202,18 @@ fn run(cli: &Cli, matches: &ArgMatches) -> Result<ExitCode, String> {
     } else {
         output::tree(&mut out, &tree, &opts);
     }
+    let color_by = if cli.legend || cli.treemap.is_some() {
+        color_by(&cli.color_by, &tree, &mut runner, &result.state)?
+    } else {
+        ColorBy::default()
+    };
+    if cli.legend {
+        let entries = bloui::render::legend(&tree, &color_by, AnalysisTree::ROOT, sort, 20);
+        output::legend(&mut out, &entries, tree.root().sizes.get(sort), &opts);
+    }
     print!("{out}");
     if let Some(path) = &cli.treemap {
-        treemap(cli, &tree, path)?;
+        treemap(cli, &tree, &color_by, path)?;
     }
     Ok(if failed {
         ExitCode::FAILURE
@@ -354,7 +369,26 @@ fn generic_stage(text: &str, registry: &Registry) -> Result<StageConfig, String>
     Ok(StageConfig::new(id, params))
 }
 
-fn treemap(cli: &Cli, tree: &AnalysisTree, path: &Path) -> Result<(), String> {
+/// A level by index or name, or else a dimension.
+fn color_by(
+    text: &str,
+    tree: &AnalysisTree,
+    runner: &mut Runner,
+    state: &bloui::pipeline::PipelineState,
+) -> Result<ColorBy, String> {
+    if let Ok(i) = text.parse::<u32>() {
+        return Ok(ColorBy::Level(i));
+    }
+    if let Some(i) = tree.levels.iter().position(|l| l.name == text) {
+        return Ok(ColorBy::Level(i as u32));
+    }
+    let dim = ParamValues::new().with("d", dim_spec(text)).dimension("d");
+    let labels = ColorLabels::compute(&mut runner.ctx, state, tree, &dim)
+        .map_err(|e| format!("--color-by: {e}"))?;
+    Ok(ColorBy::Labels(Arc::new(labels)))
+}
+
+fn treemap(cli: &Cli, tree: &AnalysisTree, color_by: &ColorBy, path: &Path) -> Result<(), String> {
     use bloui::render::{self, LayoutOptions, Rect, TreemapLayout};
     let (w, h) = cli
         .size
@@ -376,9 +410,7 @@ fn treemap(cli: &Cli, tree: &AnalysisTree, path: &Path) -> Result<(), String> {
         bounds,
         &LayoutOptions::default(),
     );
-    let colors = render::LevelColors {
-        level: cli.color_level,
-    };
+    let colors = color_by.scheme(sort);
     let img = render::cushion::render(&map, tree, &colors, w, h, &Default::default());
     img.write_png(path).map_err(|e| e.to_string())
 }

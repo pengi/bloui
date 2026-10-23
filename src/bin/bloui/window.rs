@@ -3,14 +3,17 @@
 //! status bar.
 
 use crate::SharedView;
+use crate::legend::Legend;
 use crate::pipeline::PipelinePane;
 use crate::tree_view::TreeView;
 use crate::treemap::{Change, Treemap};
 use crate::worker::{Output, Worker};
-use bloui::engine::{AnalysisTree, StageReport, StageStatus};
+use bloui::engine::{AnalysisTree, ColorLabels, StageReport, StageStatus};
 use bloui::model::Metric;
+use bloui::param::DimRef;
 use bloui::pipeline::History;
 use bloui::registry::Registry;
+use bloui::render::ColorBy;
 use bloui::view::ViewState;
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib};
@@ -31,6 +34,13 @@ struct Doc {
     reports: Vec<StageReport>,
 }
 
+/// What "Color by" offers: a tree level by name, or a dimension by id.
+#[derive(Clone, Debug, PartialEq)]
+enum ColorChoice {
+    Level(String),
+    Dim(&'static str),
+}
+
 pub struct Window {
     pub window: gtk::ApplicationWindow,
     stack: gtk::Stack,
@@ -41,6 +51,14 @@ pub struct Window {
     notes: gtk::Label,
     metric: gtk::DropDown,
     color_by: gtk::DropDown,
+    /// The choices in `color_by`, in order.
+    color_items: RefCell<Vec<ColorChoice>>,
+    color_choice: RefCell<ColorChoice>,
+    /// Labels of the chosen dimension, from the last run.
+    colors: RefCell<Option<Result<Arc<ColorLabels>, String>>>,
+    /// Set while `color_by` is refilled.
+    updating_colors: Cell<bool>,
+    legend: Rc<Legend>,
     zoom_out: gtk::Button,
     view: SharedView,
     doc: RefCell<Doc>,
@@ -67,7 +85,9 @@ impl Window {
             "File: bytes in the file. Memory: bytes at runtime. Load: bytes in flash.",
         ));
         let color_by = gtk::DropDown::from_strings(&[]);
-        color_by.set_tooltip_text(Some("Color treemap tiles by this level"));
+        color_by.set_tooltip_text(Some(
+            "Color treemap tiles by a tree level, or by any dimension",
+        ));
         let zoom_out = gtk::Button::from_icon_name("go-up-symbolic");
         zoom_out.set_tooltip_text(Some("Zoom out (Backspace)"));
         zoom_out.set_sensitive(false);
@@ -96,9 +116,17 @@ impl Window {
         let tree = TreeView::new();
         let treemap = Treemap::new(view.clone());
         // The pipeline pane runs the full height, so its form has room.
+        let legend = Legend::new();
+        let lists = gtk::Paned::builder()
+            .orientation(gtk::Orientation::Horizontal)
+            .start_child(&tree.widget)
+            .end_child(&legend.widget)
+            .resize_end_child(false)
+            .shrink_end_child(false)
+            .build();
         let views = gtk::Paned::builder()
             .orientation(gtk::Orientation::Vertical)
-            .start_child(&tree.widget)
+            .start_child(&lists)
             .end_child(&treemap)
             .position(300)
             .wide_handle(true)
@@ -151,6 +179,11 @@ impl Window {
             notes,
             metric,
             color_by,
+            color_items: RefCell::new(Vec::new()),
+            color_choice: RefCell::new(ColorChoice::Level(String::new())),
+            colors: RefCell::new(None),
+            updating_colors: Cell::new(false),
+            legend,
             zoom_out,
             view,
             doc: RefCell::new(Doc::default()),
@@ -192,10 +225,15 @@ impl Window {
             let pane = &w.pipeline.widget;
             pane.set_visible(!pane.is_visible());
         });
+        action("toggle-legend", |w| {
+            let pane = &w.legend.widget;
+            pane.set_visible(!pane.is_visible());
+        });
         self.update_undo();
         app.set_accels_for_action("win.undo", &["<Control>z"]);
         app.set_accels_for_action("win.redo", &["<Control><Shift>z", "<Control>y"]);
         app.set_accels_for_action("win.toggle-pipeline", &["F9"]);
+        app.set_accels_for_action("win.toggle-legend", &["F8"]);
         app.set_accels_for_action("win.open", &["<Control>o"]);
         app.set_accels_for_action("win.save", &["<Control>s"]);
         app.set_accels_for_action("win.save-as", &["<Control><Shift>s"]);
@@ -217,11 +255,32 @@ impl Window {
         let weak = Rc::downgrade(self);
         self.treemap.connect_change(move |change| {
             let Some(this) = weak.upgrade() else { return };
-            if change == Change::Selection {
-                let sel = this.with_view(|v| v.selected()).flatten();
-                this.tree.select(sel);
+            match change {
+                Change::Selection => {
+                    let sel = this.with_view(|v| v.selected()).flatten();
+                    this.tree.select(sel);
+                }
+                Change::Zoom => this.update_legend(),
+                Change::Hover => {}
             }
             this.update_status();
+        });
+
+        let weak = Rc::downgrade(self);
+        self.legend.connect_hover(move |label| {
+            if let Some(this) = weak.upgrade() {
+                this.treemap.set_highlight(label);
+            }
+        });
+
+        let weak = Rc::downgrade(self);
+        self.legend.connect_select(move |node| {
+            let Some(this) = weak.upgrade() else { return };
+            if this.with_view(|v| v.select(Some(node))) == Some(true) {
+                this.tree.select(Some(node));
+                this.treemap.queue_draw();
+                this.update_status();
+            }
         });
 
         let weak = Rc::downgrade(self);
@@ -238,6 +297,7 @@ impl Window {
             let Some(this) = weak.upgrade() else { return };
             if this.with_view(|v| v.zoom_to(node)) == Some(true) {
                 this.treemap.queue_draw();
+                this.update_legend();
                 this.update_status();
             }
         });
@@ -247,6 +307,7 @@ impl Window {
             let Some(this) = weak.upgrade() else { return };
             if this.with_view(|v| v.zoom_out()) == Some(true) {
                 this.treemap.queue_draw();
+                this.update_legend();
                 this.update_status();
             }
         });
@@ -261,9 +322,28 @@ impl Window {
         let weak = Rc::downgrade(self);
         self.color_by.connect_selected_notify(move |d| {
             let Some(this) = weak.upgrade() else { return };
-            let level = d.selected();
-            if level != gtk::INVALID_LIST_POSITION {
-                this.treemap.set_color_level(level);
+            if this.updating_colors.get() {
+                return;
+            }
+            let Some(choice) = this
+                .color_items
+                .borrow()
+                .get(d.selected() as usize)
+                .cloned()
+            else {
+                return;
+            };
+            if *this.color_choice.borrow() == choice {
+                return;
+            }
+            let needs_run = matches!(choice, ColorChoice::Dim(_));
+            this.color_choice.replace(choice);
+            if needs_run {
+                // Labels for the dimension come from the worker; the
+                // pipeline itself is cached.
+                this.run(false);
+            } else {
+                this.apply_color();
             }
         });
 
@@ -387,10 +467,14 @@ impl Window {
         self.generation.set(generation);
         self.status.set_text("Running…");
         let metric = self.selected_metric();
+        let color = match &*self.color_choice.borrow() {
+            ColorChoice::Dim(id) => Some(DimRef::new(id)),
+            ColorChoice::Level(_) => None,
+        };
         let worker = self.worker.clone();
         let weak = Rc::downgrade(self);
         glib::spawn_future_local(async move {
-            let out = worker.run(pipeline, base_dir, metric, reload).await;
+            let out = worker.run(pipeline, base_dir, metric, reload, color).await;
             if let Some(this) = weak.upgrade()
                 && this.generation.get() == generation
             {
@@ -401,6 +485,7 @@ impl Window {
 
     fn show(&self, out: Output) {
         self.doc.borrow_mut().reports = out.reports;
+        self.colors.replace(out.colors);
         let metric = self.selected_metric();
         let tree = if out.tree.sorted_by == metric {
             out.tree
@@ -408,7 +493,8 @@ impl Window {
             resorted(&out.tree, metric)
         };
         self.set_tree(tree);
-        self.update_levels();
+        self.update_color_items();
+        self.apply_color();
         self.update_notes();
         self.update_pipeline_pane();
         self.stack.set_visible_child_name("content");
@@ -436,6 +522,7 @@ impl Window {
         };
         self.set_tree(resorted(&tree, self.selected_metric()));
         self.update_pipeline_pane();
+        self.update_legend();
     }
 
     fn update_pipeline_pane(&self) {
@@ -447,37 +534,91 @@ impl Window {
             .set_reports(&doc.reports, self.selected_metric(), levels);
     }
 
-    /// Fill "Color by" with the tree's levels, keeping the choice.
-    fn update_levels(&self) {
+    /// Fill "Color by" with the tree's levels and the dimensions, keeping
+    /// the choice.
+    fn update_color_items(&self) {
         let Some(tree) = self.with_view(|v| v.tree().clone()) else {
             return;
         };
-        let names: Vec<&str> = tree.levels.iter().map(|l| l.name.as_str()).collect();
-        let current: Option<String> = self
-            .color_by
-            .selected_item()
-            .and_downcast::<gtk::StringObject>()
-            .map(|s| s.string().into());
-        let old: Vec<String> = self.color_by_names();
-        if old == names {
+        let mut items: Vec<ColorChoice> = tree
+            .levels
+            .iter()
+            .map(|l| ColorChoice::Level(l.name.clone()))
+            .collect();
+        items.extend(
+            self.registry
+                .dimensions
+                .iter()
+                .map(|d| ColorChoice::Dim(d.id())),
+        );
+        if *self.color_items.borrow() == items {
             return;
         }
-        self.color_by.set_model(Some(&gtk::StringList::new(&names)));
-        let pos = current
-            .and_then(|c| names.iter().position(|n| *n == c))
-            .unwrap_or(0);
+        let labels: Vec<String> = items
+            .iter()
+            .map(|c| match c {
+                ColorChoice::Level(name) => name.clone(),
+                ColorChoice::Dim(id) => {
+                    let name = self.registry.dimension(id).map_or(*id, |d| d.name());
+                    format!("dimension: {name}")
+                }
+            })
+            .collect();
+        let labels: Vec<&str> = labels.iter().map(String::as_str).collect();
+        let mut choice = self.color_choice.borrow().clone();
+        let pos = items.iter().position(|c| *c == choice).unwrap_or_else(|| {
+            choice = items
+                .first()
+                .cloned()
+                .unwrap_or(ColorChoice::Level(String::new()));
+            0
+        });
+        self.updating_colors.set(true);
+        self.color_by
+            .set_model(Some(&gtk::StringList::new(&labels)));
         self.color_by.set_selected(pos as u32);
-        self.treemap.set_color_level(pos as u32);
+        self.updating_colors.set(false);
+        self.color_items.replace(items);
+        self.color_choice.replace(choice);
     }
 
-    fn color_by_names(&self) -> Vec<String> {
-        let Some(model) = self.color_by.model() else {
-            return Vec::new();
+    /// Color the treemap by the current choice, and refresh the legend.
+    fn apply_color(&self) {
+        let Some(tree) = self.with_view(|v| v.tree().clone()) else {
+            return;
         };
-        (0..model.n_items())
-            .filter_map(|i| model.item(i).and_downcast::<gtk::StringObject>())
-            .map(|s| s.string().into())
-            .collect()
+        let color = match &*self.color_choice.borrow() {
+            ColorChoice::Level(name) => {
+                let i = tree.levels.iter().position(|l| l.name == *name);
+                ColorBy::Level(i.unwrap_or(0) as u32)
+            }
+            ColorChoice::Dim(_) => match &*self.colors.borrow() {
+                Some(Ok(labels)) => ColorBy::Labels(labels.clone()),
+                _ => ColorBy::Level(0),
+            },
+        };
+        self.treemap.set_color(color);
+        self.update_legend();
+    }
+
+    fn update_legend(&self) {
+        let view = self.view.borrow();
+        let Some(v) = view.as_ref() else {
+            return;
+        };
+        let color = self.treemap.color();
+        let tree = v.tree();
+        let root = v.zoom_root();
+        let entries = bloui::render::legend(tree, &color, root, v.metric, 40);
+        let what = match &color {
+            ColorBy::Level(l) => tree
+                .levels
+                .get(*l as usize)
+                .map_or(String::new(), |l| l.name.clone()),
+            ColorBy::Labels(labels) => labels.name.to_owned(),
+        };
+        self.legend
+            .set(&what, tree.node(root).sizes.get(v.metric), entries);
     }
 
     fn update_status(&self) {
@@ -523,6 +664,10 @@ impl Window {
                 problems += 1;
                 lines.push(format!("{what}: {w}"));
             }
+        }
+        if let Some(Err(e)) = &*self.colors.borrow() {
+            problems += 1;
+            lines.push(format!("Color by: {e}"));
         }
         self.notes.set_visible(problems > 0);
         self.notes.set_text(&match problems {

@@ -54,6 +54,8 @@ impl Scene {
 /// Outline colors for the treemap scene.
 pub const SELECTION: Rgb = Rgb(0xff, 0xff, 0xff);
 pub const HOVER: Rgb = Rgb(0xff, 0xe0, 0x40);
+/// Tiles of the label hovered in the legend.
+pub const HIGHLIGHT: Rgb = Rgb(0x40, 0xe0, 0xff);
 
 /// The treemap view: the rendered cushions, then outlines for the
 /// selected and hovered nodes (or their nearest visible ancestors).

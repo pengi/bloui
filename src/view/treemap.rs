@@ -3,7 +3,7 @@ use super::ViewState;
 use crate::engine::{AnalysisTree, NodeId};
 use crate::model::Metric;
 use crate::render::{
-    self, CushionOptions, Image, LayoutOptions, LevelColors, Rect, Scene, Treemap, TreemapLayout,
+    self, ColorBy, CushionOptions, Image, LayoutOptions, Prim, Rect, Scene, Treemap, TreemapLayout,
 };
 use std::sync::Arc;
 
@@ -22,20 +22,15 @@ struct Key {
     width: u32,
     height: u32,
     layout: LayoutKind,
-    color_level: u32,
+    color: ColorBy,
 }
 
 impl PartialEq for Key {
     fn eq(&self, o: &Key) -> bool {
         Arc::ptr_eq(&self.tree, &o.tree)
-            && (
-                self.root,
-                self.metric,
-                self.width,
-                self.height,
-                self.layout,
-                self.color_level,
-            ) == (o.root, o.metric, o.width, o.height, o.layout, o.color_level)
+            && (self.root, self.metric, self.width, self.height, self.layout)
+                == (o.root, o.metric, o.width, o.height, o.layout)
+            && self.color == o.color
     }
 }
 
@@ -45,7 +40,9 @@ impl PartialEq for Key {
 #[derive(Default)]
 pub struct TreemapView {
     pub layout: LayoutKind,
-    pub color_level: u32,
+    pub color: ColorBy,
+    /// Outline the tiles with this color label (hovering the legend).
+    pub highlight: Option<Arc<str>>,
     pub cushion: CushionOptions,
     cache: Option<(Key, Treemap, Arc<Image>)>,
 }
@@ -63,7 +60,7 @@ impl TreemapView {
             width,
             height,
             layout: self.layout,
-            color_level: self.color_level,
+            color: self.color.clone(),
         };
         if self.cache.as_ref().is_some_and(|(k, _, _)| *k == key) {
             return;
@@ -81,9 +78,7 @@ impl TreemapView {
             bounds,
             &LayoutOptions::default(),
         );
-        let colors = LevelColors {
-            level: self.color_level,
-        };
+        let colors = self.color.scheme(key.metric);
         let image = render::cushion::render(&map, tree, &colors, width, height, &self.cushion);
         self.cache = Some((key, map, Arc::new(image)));
     }
@@ -95,13 +90,46 @@ impl TreemapView {
         }
         self.update(state, width, height);
         let (_, map, image) = self.cache.as_ref().unwrap();
-        render::scene::treemap_scene(
+        let mut scene = render::scene::treemap_scene(
             map,
             state.tree(),
             image.clone(),
             state.selected(),
             state.hover(),
-        )
+        );
+        if let Some(label) = &self.highlight {
+            for tile in self.highlighted(state, label) {
+                scene.push(
+                    Some(tile.0),
+                    Prim::Outline {
+                        rect: tile.1,
+                        color: render::scene::HIGHLIGHT,
+                        width: 2.0,
+                    },
+                );
+            }
+        }
+        scene
+    }
+
+    /// The topmost tiles whose color label is `label`.
+    fn highlighted(&self, state: &ViewState, label: &str) -> Vec<(NodeId, Rect)> {
+        let Some((_, map, _)) = self.cache.as_ref() else {
+            return Vec::new();
+        };
+        let mut out = Vec::new();
+        let mut i = 0;
+        while i < map.tiles.len() {
+            let t = &map.tiles[i];
+            let l = self.color.label_of(state.tree(), t.node, state.metric);
+            if l.as_deref() == Some(label) {
+                out.push((t.node, t.rect));
+                i = t.next as usize;
+            } else {
+                i += 1;
+            }
+        }
+        out
     }
 
     /// The node under a point, from the last scene's layout.

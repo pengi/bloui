@@ -256,3 +256,77 @@ fn treemap_scene() {
     assert!(matches!(s.prims[0].1, render::Prim::Image { .. }));
     assert_eq!(s.prims[1].0, Some(first_child));
 }
+
+#[test]
+fn color_by_another_dimension() {
+    use bloui::engine::ColorLabels;
+    use bloui::param::DimRef;
+    use bloui::render::{ColorBy, legend};
+    use std::sync::Arc;
+    let (result, mut runner) = run(vec![
+        open(FW),
+        stage("filter-space", &[("keep", text("load"))]),
+        split("section"),
+    ]);
+    let t = AnalysisTree::build(&result.state, &runner.ctx.interner, Metric::Load);
+    let labels = ColorLabels::compute(
+        &mut runner.ctx,
+        &result.state,
+        &t,
+        &DimRef::new("object-file"),
+    )
+    .unwrap();
+    let text = find(&t, &[".text"]).unwrap();
+    let text_id = *t
+        .children(AnalysisTree::ROOT)
+        .iter()
+        .find(|&&c| &*t.node(c).name == ".text")
+        .unwrap();
+    // Labels under a node add up to its size.
+    let sum: u64 = labels.labels(text_id).iter().map(|l| l.1.load).sum();
+    assert_eq!(sum, text.sizes.load);
+    assert_eq!(
+        labels.dominant(text_id, Metric::Load).map(|l| &**l),
+        Some("libgcc.a/_udivmoddi4.o")
+    );
+
+    let by_obj = ColorBy::Labels(Arc::new(labels));
+    let l = legend(&t, &by_obj, AnalysisTree::ROOT, Metric::Load, 3);
+    let names: Vec<&str> = l.iter().map(|e| &*e.label).collect();
+    assert_eq!(
+        names,
+        ["libgcc.a/_udivmoddi4.o", "main.o", "uart.o", "[other]"]
+    );
+    assert_eq!(l[0].size, 792);
+    assert_eq!(l[0].node, text_id);
+    assert_eq!(l.iter().map(|e| e.size).sum::<u64>(), 1668);
+
+    let l = legend(&t, &ColorBy::Level(0), AnalysisTree::ROOT, Metric::Load, 10);
+    assert_eq!(
+        (&*l[0].label, l[0].size, l[0].node),
+        (".text", 1320, text_id)
+    );
+    assert_eq!(l.len(), 5);
+}
+
+#[test]
+fn legend_highlight_outlines_tiles() {
+    use bloui::render::{ColorBy, Prim};
+    use bloui::view::{TreemapView, ViewState};
+    use std::sync::Arc;
+    let t = Arc::new(fw_tree());
+    let state = ViewState::new(t.clone());
+    let mut view = TreemapView::new();
+    view.color = ColorBy::Level(0);
+    view.highlight = Some("FLASH".into());
+    let scene = view.scene(&state, 400, 300);
+    let outlines: Vec<_> = scene
+        .prims
+        .iter()
+        .filter(
+            |(_, p)| matches!(p, Prim::Outline { color, .. } if *color == render::scene::HIGHLIGHT),
+        )
+        .collect();
+    assert_eq!(outlines.len(), 1);
+    assert_eq!(&*t.node(outlines[0].0.unwrap()).name, "FLASH");
+}

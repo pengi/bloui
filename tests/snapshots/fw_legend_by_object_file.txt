@@ -1,0 +1,19 @@
+     FILE    MEMORY      LOAD      %L  section
+     1668      1668      1668  100.0%  TOTAL
+     1320      1320      1320   79.1%  ├─ .text
+      172       172       172   10.3%  ├─ .rodata
+      160       160       160    9.6%  ├─ .isr_vector
+        8         8         8    0.5%  ├─ .ARM.exidx
+        8         8         8    0.5%  └─ .data
+
+Legend (load):
+  #e07a2c       792  47.5%  libgcc.a(_udivmoddi4.o)
+  #e0b02a       311  18.6%  main.o
+  #3fa84c       221  13.2%  uart.o
+  #3b6fe0       162   9.7%  vectors.o
+  #2baeb8        64   3.8%  startup.o
+  #7da82f        48   2.9%  libgcc.a(_aeabi_uldivmod.o)
+  #e0b02a        48   2.9%  libhal.a(gpio.o)
+  #3b6fe0        16   1.0%  libhal.a(clock.o)
+  #3b6fe0         4   0.2%  libgcc.a(_dvmd_tls.o)
+  #9a9a9a         2   0.1%  [fill]

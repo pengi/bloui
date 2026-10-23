@@ -3,7 +3,7 @@
 //! to the shared `ViewState`.
 
 use crate::SharedView;
-use bloui::render::{Image, Prim, Rect, Rgb};
+use bloui::render::{ColorBy, Image, Prim, Rect, Rgb};
 use bloui::view::TreemapView;
 use gtk::glib;
 use gtk::prelude::*;
@@ -79,10 +79,26 @@ impl Treemap {
         self.imp().on_change.replace(Some(Box::new(f)));
     }
 
-    /// Color tiles by the label at this tree level.
-    pub fn set_color_level(&self, level: u32) {
-        self.imp().map.borrow_mut().color_level = level;
-        self.queue_draw();
+    /// What the tile colors stand for.
+    pub fn set_color(&self, color: ColorBy) {
+        let mut map = self.imp().map.borrow_mut();
+        if map.color != color {
+            map.color = color;
+            self.queue_draw();
+        }
+    }
+
+    pub fn color(&self) -> ColorBy {
+        self.imp().map.borrow().color.clone()
+    }
+
+    /// Outline the tiles with this color label.
+    pub fn set_highlight(&self, label: Option<Arc<str>>) {
+        let mut map = self.imp().map.borrow_mut();
+        if map.highlight != label {
+            map.highlight = label;
+            self.queue_draw();
+        }
     }
 
     fn emit(&self, change: Change) {

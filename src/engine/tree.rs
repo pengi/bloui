@@ -31,6 +31,9 @@ pub struct AnalysisTree {
     pub nodes: Vec<Node>,
     pub levels: Vec<LevelInfo>,
     pub sorted_by: Metric,
+    /// The leaf node of each fragment of the state the tree was built
+    /// from, by fragment index.
+    pub leaf_of: Vec<NodeId>,
 }
 
 impl AnalysisTree {
@@ -49,6 +52,7 @@ impl AnalysisTree {
             vma: None,
         }];
         let mut index: HashMap<(u32, u32, Sym), NodeId> = HashMap::new();
+        let mut leaf_of = Vec::with_capacity(fragments.len());
         let mut path = Vec::new();
         for f in fragments {
             let vma = state
@@ -86,6 +90,7 @@ impl AnalysisTree {
                     path.push(cur);
                 }
             }
+            leaf_of.push(cur);
             for id in &path {
                 let n = &mut nodes[id.0 as usize];
                 n.sizes += f.sizes;
@@ -102,6 +107,7 @@ impl AnalysisTree {
             nodes,
             levels: levels.clone(),
             sorted_by: sort,
+            leaf_of,
         };
         tree.sort(sort);
         tree

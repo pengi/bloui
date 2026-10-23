@@ -8,7 +8,7 @@ pub mod image;
 pub mod layout;
 pub mod scene;
 
-pub use color::{ColorScheme, LevelColors, Paint, Rgb};
+pub use color::{ColorBy, ColorScheme, LegendEntry, LevelColors, Paint, Rgb, legend};
 pub use cushion::CushionOptions;
 pub use image::Image;
 pub use layout::{LayoutOptions, Rect, SliceAndDice, Squarified, Tile, Treemap, TreemapLayout};

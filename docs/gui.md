@@ -31,12 +31,21 @@ pipeline pane, and the result follows every change.
   `4096`, `0x1000`, `4K`, `1.5M`.
 - **Header bar**: open, save (Ctrl+S; Ctrl+Shift+S saves under a new
   name), zoom out, the **metric** (file, memory or load, see
-  [concepts](concepts.md)), **color by** (the tree level whose labels pick
-  the treemap colors), and reload (F5), which reads the input files again.
+  [concepts](concepts.md)), **color by**, and reload (F5), which reads the
+  input files again. Color by is either a tree level (tiles take the
+  color of their label at that level) or any dimension ("dimension:
+  object file"): then each tile takes the color of the label with the
+  most bytes in it, without adding a level to the tree. A label has the
+  same color whichever way it is chosen.
 - **Tree list**: name, size in the chosen metric, percentage of the total,
   a bar with the share of the parent, the number of fragments, and the
   lowest runtime address.
 - **Treemap**: cushion treemap of the tree, or of the zoomed-in node.
+- **Legend** (right of the tree list, F8 hides it): the labels of the
+  colors under the zoomed-in node, biggest first, with their sizes (the
+  rest as `[other]` after 40). For a dimension, sizes are all bytes with
+  that label, also where another label wins the tile. Hovering a label
+  outlines its tiles; clicking it selects the biggest node with it.
 - **Status bar**: the node under the mouse (or the selected node): path,
   size, share, address. When zoomed in, the zoom node comes first in
   brackets.
@@ -55,6 +64,7 @@ pipeline pane, and the result follows every change.
 | Tree list | double-click, Enter         | zoom to that node                  |
 | Anywhere  | Ctrl+Z, Ctrl+Shift+Z        | undo, redo pipeline edits          |
 | Anywhere  | F9                          | show or hide the pipeline pane     |
+| Anywhere  | F8                          | show or hide the legend            |
 
 Selection, zoom and expanded rows are kept by path when the result
 changes (reload, metric).

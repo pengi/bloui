@@ -52,6 +52,27 @@ fn fw_sections() {
 }
 
 #[test]
+fn fw_legend_by_object_file() {
+    cli(
+        "fw_legend_by_object_file",
+        &[
+            "-i",
+            "cortexm/fw.elf",
+            "-k",
+            "load",
+            "-s",
+            "section",
+            "-m",
+            "load",
+            "--bytes",
+            "--legend",
+            "--color-by",
+            "object-file:archives=flat",
+        ],
+    );
+}
+
+#[test]
 fn fw_flash_symbols() {
     cli(
         "fw_flash_symbols",
