@@ -6,6 +6,6 @@
 - [Project files](project-files.md): saving a pipeline as `*.bloui.toml`.
 - [Development](development.md): building, testing, code layout, rules.
 
-Status: the backend, linker maps, memory regions and `bloui-cli` work
-(milestones M1 and M2). The treemap and the GTK GUI come next; see
+Status: the backend, linker maps, memory regions, the treemap renderer and
+`bloui-cli` work (milestones M1 to M3). The GTK GUI comes next; see
 [plan.md](../plan.md) for the roadmap.

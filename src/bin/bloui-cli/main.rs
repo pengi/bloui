@@ -97,6 +97,22 @@ struct Cli {
     #[arg(long)]
     list: bool,
 
+    /// Also render a cushion treemap to this PNG file.
+    #[arg(long, value_name = "FILE.png")]
+    treemap: Option<PathBuf>,
+
+    /// Treemap size in pixels.
+    #[arg(long, default_value = "1024x640", value_name = "WxH")]
+    size: String,
+
+    /// Treemap layout.
+    #[arg(long, default_value = "squarified", value_name = "squarified|slice")]
+    layout: String,
+
+    /// Color treemap tiles by the label at this tree level.
+    #[arg(long, default_value_t = 0, value_name = "LEVEL")]
+    color_level: u32,
+
     /// Save the pipeline as a project file.
     #[arg(long, value_name = "FILE")]
     save: Option<PathBuf>,
@@ -181,6 +197,9 @@ fn run(cli: &Cli, matches: &ArgMatches) -> Result<ExitCode, String> {
         output::tree(&mut out, &tree, &opts);
     }
     print!("{out}");
+    if let Some(path) = &cli.treemap {
+        treemap(cli, &tree, path)?;
+    }
     Ok(if failed {
         ExitCode::FAILURE
     } else {
@@ -333,4 +352,33 @@ fn generic_stage(text: &str, registry: &Registry) -> Result<StageConfig, String>
         params.set(key, new);
     }
     Ok(StageConfig::new(id, params))
+}
+
+fn treemap(cli: &Cli, tree: &AnalysisTree, path: &Path) -> Result<(), String> {
+    use bloui::render::{self, LayoutOptions, Rect, TreemapLayout};
+    let (w, h) = cli
+        .size
+        .split_once('x')
+        .and_then(|(w, h)| Some((w.parse::<u32>().ok()?, h.parse::<u32>().ok()?)))
+        .filter(|&(w, h)| w > 0 && h > 0 && w <= 16384 && h <= 16384)
+        .ok_or(format!("--size expects WxH, got '{}'", cli.size))?;
+    let layout: &dyn TreemapLayout = match cli.layout.as_str() {
+        "squarified" => &render::Squarified,
+        "slice" => &render::SliceAndDice,
+        l => return Err(format!("unknown layout '{l}'")),
+    };
+    let sort = Metric::from_name(&cli.sort).unwrap_or_default();
+    let bounds = Rect::new(0.0, 0.0, w as f64, h as f64);
+    let map = layout.layout(
+        tree,
+        AnalysisTree::ROOT,
+        sort,
+        bounds,
+        &LayoutOptions::default(),
+    );
+    let colors = render::LevelColors {
+        level: cli.color_level,
+    };
+    let img = render::cushion::render(&map, tree, &colors, w, h, &Default::default());
+    img.write_png(path).map_err(|e| e.to_string())
 }

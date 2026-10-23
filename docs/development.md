@@ -51,6 +51,8 @@ src/
                runner with per-stage cache
   registry/    the lists of readers, dimensions and stages
   project/     *.bloui.toml load/save
+  render/      treemap layouts and hit testing, cushion shading, colors,
+               images (PNG), scenes (display lists for frontends)
   bin/bloui/       GTK frontend
   bin/bloui-cli/   text frontend
 ```
@@ -86,6 +88,8 @@ reruns keep the same binary and its cached labels. Stages report with
 - `tests/engine.rs`: invariants: totals don't depend on split order,
   children sum to their parent, filter statistics add up, flash/RAM by
   address.
+- `tests/render.rs`: layout invariants (inside bounds, areas proportional,
+  no overlaps), hit testing against brute force, cushion rendering.
 - `tests/cli.rs`: snapshots of `bloui-cli` output in `tests/snapshots/`.
   After an intended output change, run `BLOUI_BLESS=1 cargo test --test cli`
   and review the diff.

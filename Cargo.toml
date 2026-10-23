@@ -14,6 +14,7 @@ gui = []
 [dependencies]
 clap = { version = "4.6", features = ["derive"] }
 memmap2 = "0.9"
+png = "0.18"
 object = { version = "0.40", default-features = false, features = ["std", "read_core", "elf"] }
 regex = "1.13"
 serde = { version = "1.0", features = ["derive"] }

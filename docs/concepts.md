@@ -122,6 +122,21 @@ next to `fw.elf`. A `linker-map` stage attaches one from elsewhere. Bloui
 checks that the map matches the binary (every section in both must have the
 same address and size), so a map from an older build isn't used by mistake.
 
+## Treemap
+
+The treemap shows the result tree as nested rectangles, each with an area
+proportional to its size in the chosen metric. It's drawn WinDirStat-style,
+with cushion shading: each level adds a "bump", so the nesting is visible
+without borders.
+
+- Layouts: *squarified* (Bruls et al.; tiles as square as possible, the
+  default) or *slice and dice* (alternating rows and columns per level).
+- Tiles smaller than a pixel are folded into their parent.
+- Colors are taken from the label at one tree level (by default the first
+  level) and hashed, so a label keeps its color when the pipeline changes.
+  Bracketed labels such as `[no symbol]` are grey; free space is flat light
+  grey, so how full a memory region is shows at a glance.
+
 ## Symbols
 
 For ARM, the Thumb bit (bit 0) of function addresses is cleared, and the

@@ -14,5 +14,6 @@ pub mod pipeline;
 pub mod project;
 pub mod reader;
 pub mod registry;
+pub mod render;
 
 pub use error::{Error, Result};

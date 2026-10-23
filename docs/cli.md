@@ -34,6 +34,10 @@ Output options:
 | `--stats` | what each stage did, before the tree |
 | `--save FILE` | save the pipeline as a project file |
 | `--list` | list all stages and dimensions with their parameters |
+| `--treemap FILE.png` | also render a cushion treemap (by the `--sort` metric) |
+| `--size WxH` | treemap size in pixels (default `1024x640`) |
+| `--layout squarified\|slice` | treemap layout (default `squarified`) |
+| `--color-level N` | color treemap tiles by the label at tree level N (default 0) |
 
 If a stage fails, `bloui-cli` prints the error, shows the result without that
 stage, and exits with status 1. Warnings (a linker map that doesn't match)
@@ -79,6 +83,10 @@ bloui-cli -i fw.elf --region FLASH:0x08000000:64K --region RAM:0x20000000:16K \
 
 # Flash usage per object file and input section.
 bloui-cli -i fw.elf -k load -s object-file -s input-section -m load
+
+# A treemap of the flash image, colored by object file.
+bloui-cli -i fw.elf -k load -s object-file -s input-section -m load -n 0 \
+    --treemap flash.png
 
 # Two files side by side.
 bloui-cli -i old.elf -i new.elf -s file -s section
