@@ -27,11 +27,11 @@ impl Dimension for SegmentDim {
         );
         for seg in bin.segments.iter().filter(|s| s.kind == SegmentKind::Load) {
             let name = format!("LOAD #{} [{}]", seg.index, seg.flags_text());
-            let label = Label::single(interner.intern(&name));
-            // The file part covers a load image; the runtime range covers
-            // everything at runtime.
-            l.push(AddrSpace::File, seg.file, label.clone());
-            l.push(AddrSpace::Vma, seg.vma_span(), label);
+            l.push(
+                AddrSpace::Vma,
+                seg.vma_span(),
+                Label::single(interner.intern(&name)),
+            );
         }
         Ok(l)
     }

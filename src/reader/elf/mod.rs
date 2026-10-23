@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 //! ELF reader, using the `object` crate's raw ELF API.
 
-use super::{Confidence, ReadOptions, Reader};
+use super::{Confidence, Reader};
 use crate::model::{
     Binary, BinaryParts, Bytes, FileRegion, FormatInfo, Section, SectionKind, Segment, SegmentKind,
     Span, Symbol, SymbolBinding, SymbolKind,
@@ -63,7 +63,7 @@ impl Reader for ElfReader {
         }
     }
 
-    fn read(&self, data: Bytes, path: &Path, name: String, opts: ReadOptions) -> Result<Binary> {
+    fn read(&self, data: Bytes, path: &Path, name: String) -> Result<Binary> {
         let fail = |msg: String| Error::Format {
             path: path.to_owned(),
             msg,
@@ -83,7 +83,6 @@ impl Reader for ElfReader {
             sections: parts.sections,
             segments: parts.segments,
             symbols: parts.symbols,
-            split_copies: opts.split_copies,
         }))
     }
 }

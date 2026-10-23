@@ -73,9 +73,8 @@ add it to the list in that directory's `mod.rs`. Parameters are declared as
 A dimension returns a `Labeling`: label entries in any address space, an
 overlap policy, and a fallback label. Use tiers for fallbacks that should
 lose against real labels (the symbol dimension's `[.text]`). Place a range
-in a section with `Binary::places_in_section`, which gives both its file
-range and its runtime range, so load images and runtime copies are both
-labeled.
+in a section with `Binary::places_in_section`, which gives its file range
+and its runtime range (the latter covers NOBITS sections like `.bss`).
 
 A stage that changes a binary (attaches something) makes a copy with
 `Binary::derive` through `PipelineCtx::derive_binary`, which caches it so

@@ -93,11 +93,11 @@ fn regions_add_up_with_free_space() {
         Metric::Memory,
     );
     assert_eq!(find(&t, &["FLASH"]).unwrap().sizes.memory, 64 * 1024);
-    assert_eq!(find(&t, &["RAM"]).unwrap().sizes.memory, 16 * 1024);
-    // .data in both: its image in flash, its copy in RAM.
+    // .data counts where it is stored, in flash. Its runtime copy in RAM
+    // isn't shown, and isn't free either, so RAM adds up to 8 bytes less.
+    assert_eq!(find(&t, &["RAM"]).unwrap().sizes.memory, 16 * 1024 - 8);
     assert_eq!(find(&t, &["FLASH", ".data"]).unwrap().sizes.load, 8);
-    assert_eq!(find(&t, &["RAM", ".data"]).unwrap().sizes.memory, 8);
-    assert_eq!(find(&t, &["RAM", ".data"]).unwrap().sizes.load, 0);
+    assert!(find(&t, &["RAM", ".data"]).is_none());
     let flash_free = find(&t, &["FLASH", "[free]"]).unwrap().sizes.memory;
     assert_eq!(flash_free, 0x10000 - 0x67c - 8);
     let ram_free = find(&t, &["RAM", "[free]"]).unwrap().sizes.memory;
@@ -204,19 +204,6 @@ fn region_unavailable_without_map() {
         r.reports[2].status,
         bloui::engine::StageStatus::Unavailable(_)
     ));
-}
-
-#[test]
-fn without_load_copies() {
-    let off = stage(
-        "open-file",
-        &[
-            ("path", text(fixture(FW).to_str().unwrap())),
-            ("load_copies", ParamValue::Bool(false)),
-        ],
-    );
-    let t = tree(vec![off, split("section")], Metric::Memory);
-    assert_eq!(find(&t, &[".data"]).unwrap().sizes.memory, 8);
 }
 
 #[test]

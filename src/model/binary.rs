@@ -168,10 +168,6 @@ pub struct FileRegion {
 }
 
 /// A contiguous run of bytes with the same length in every space it has.
-///
-/// Bytes whose load address differs from their runtime address (`.data`
-/// on a microcontroller) are two chunks: the image in the file at the load
-/// address, and the copy at the runtime address. Both take memory.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub struct Chunk {
     pub unified: Span,
@@ -208,9 +204,9 @@ impl Chunk {
         self.file.is_some()
     }
 
-    /// Takes address space at runtime or at its load address.
+    /// Allocated at runtime.
     pub fn is_memory(&self) -> bool {
-        self.vma.is_some() || self.lma.is_some()
+        self.vma.is_some()
     }
 
     /// Has content that is loaded: part of the flash image.
@@ -218,10 +214,14 @@ impl Chunk {
         self.file.is_some() && self.is_memory()
     }
 
-    /// Where the chunk takes address space: its runtime address, or its
-    /// load address for a load image.
+    /// Where the chunk is stored: the load address for bytes with content
+    /// (`.data` is stored in flash), the runtime address otherwise.
     pub fn addr(&self) -> Option<u64> {
-        self.vma.or(self.lma)
+        if self.file.is_some() {
+            self.lma.or(self.vma)
+        } else {
+            self.vma
+        }
     }
 
     /// Sizes of `len` bytes of this chunk.
@@ -289,16 +289,7 @@ impl ChunkTable {
 
     /// Cut a file into chunks from its segments, or from its sections when
     /// there are no loadable segments (relocatable objects).
-    ///
-    /// With `split_copies`, file bytes whose load address differs from their
-    /// runtime address become two chunks (see [`Chunk`]). Without it, the
-    /// load address is only kept as an attribute.
-    pub fn build(
-        file_len: u64,
-        segments: &[Segment],
-        sections: &[Section],
-        split_copies: bool,
-    ) -> Self {
+    pub fn build(file_len: u64, segments: &[Segment], sections: &[Section]) -> Self {
         let mut maps: Vec<Mapping> = segments
             .iter()
             .filter(|s| s.kind == SegmentKind::Load)
@@ -353,11 +344,6 @@ impl ChunkTable {
                 .iter()
                 .find(|m| m.file.is_some_and(|f| f.contains(piece.start)));
             match map {
-                Some(m) if split_copies && m.vma != m.lma => {
-                    let off = piece.start - m.file.unwrap().start;
-                    push(piece.len(), Some(piece.start), None, Some(m.lma + off));
-                    push(piece.len(), None, Some(m.vma + off), None);
-                }
                 Some(m) => {
                     let off = piece.start - m.file.unwrap().start;
                     push(
@@ -499,8 +485,6 @@ pub struct BinaryParts {
     pub sections: Vec<Section>,
     pub segments: Vec<Segment>,
     pub symbols: Vec<Symbol>,
-    /// See [`ChunkTable::build`].
-    pub split_copies: bool,
 }
 
 /// Up to two places for one range: in the file, and at runtime.
@@ -518,7 +502,6 @@ impl Binary {
             mut sections,
             segments,
             symbols,
-            split_copies,
         } = parts;
         for sec in sections.iter_mut().filter(|s| s.alloc && !s.nobits) {
             sec.lma = segments
@@ -528,7 +511,7 @@ impl Binary {
                 .map(|seg| seg.paddr + (sec.vma - seg.vaddr))
                 .or_else(|| segments.is_empty().then_some(sec.vma));
         }
-        let chunks = ChunkTable::build(data.len() as u64, &segments, &sections, split_copies);
+        let chunks = ChunkTable::build(data.len() as u64, &segments, &sections);
         Binary {
             uid: Self::new_uid(),
             name,
@@ -568,9 +551,8 @@ impl Binary {
     }
 
     /// Where `len` bytes at `offset` into a section are: in the file if
-    /// the section has content there, and at runtime if it is allocated.
-    /// Labeling both places covers the load image and the runtime copy of
-    /// a section like `.data` (see [`Chunk`]).
+    /// the section has content there, and at runtime if it is allocated
+    /// (which covers NOBITS sections like `.bss`).
     pub fn places_in_section(&self, sec: &Section, offset: u64, len: u64) -> Places {
         let mut out = Places::new();
         if len == 0 || offset >= sec.size.max(1) {
@@ -726,7 +708,6 @@ pub(crate) mod tests {
             sections,
             segments,
             symbols,
-            split_copies: true,
         })
     }
 
@@ -734,8 +715,8 @@ pub(crate) mod tests {
     fn chunk_table_cortex_m() {
         let b = cortex_m();
         let c = b.chunks.chunks();
-        // header, text, data image, data copy, debug, bss tail
-        assert_eq!(c.len(), 6);
+        // header, text, data, debug, bss tail
+        assert_eq!(c.len(), 5);
         let chunk = |u: (u64, u64), file, vma, lma| Chunk {
             unified: Span::new(u.0, u.1),
             file,
@@ -744,24 +725,26 @@ pub(crate) mod tests {
             free: false,
         };
         assert_eq!(c[0], chunk((0, 0x10), Some(0), None, None));
-        assert_eq!(
-            c[1],
-            chunk(
-                (0x10, 0x50),
-                Some(0x10),
-                Some(0x0800_0000),
-                Some(0x0800_0000)
-            )
+        let text = chunk(
+            (0x10, 0x50),
+            Some(0x10),
+            Some(0x0800_0000),
+            Some(0x0800_0000),
         );
-        assert_eq!(
-            c[2],
-            chunk((0x50, 0x60), Some(0x50), None, Some(0x0800_0040))
+        assert_eq!(c[1], text);
+        let data = chunk(
+            (0x50, 0x60),
+            Some(0x50),
+            Some(0x2000_0000),
+            Some(0x0800_0040),
         );
-        assert_eq!(c[3], chunk((0x60, 0x70), None, Some(0x2000_0000), None));
-        assert_eq!(c[4], chunk((0x70, 0x110), Some(0x60), None, None));
-        assert_eq!(c[5], chunk((0x110, 0x130), None, Some(0x2000_0010), None));
+        assert_eq!(c[2], data);
+        assert_eq!(c[3], chunk((0x60, 0x100), Some(0x60), None, None));
+        assert_eq!(c[4], chunk((0x100, 0x120), None, Some(0x2000_0010), None));
         assert_eq!(b.sections[1].lma, Some(0x0800_0040));
-        // The image counts as file, memory and load; the copy as memory.
+        // .data is stored in flash; .bss only exists at runtime.
+        assert_eq!(c[2].addr(), Some(0x0800_0040));
+        assert_eq!(c[4].addr(), Some(0x2000_0010));
         assert_eq!(
             c[2].sizes(4),
             Sizes {
@@ -771,7 +754,7 @@ pub(crate) mod tests {
             }
         );
         assert_eq!(
-            c[3].sizes(4),
+            c[4].sizes(4),
             Sizes {
                 file: 0,
                 memory: 4,
@@ -781,41 +764,19 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn no_split_copies() {
-        let mut parts_b = cortex_m();
-        let t = ChunkTable::build(0x100, &parts_b.segments, &parts_b.sections, false);
-        assert_eq!(t.chunks().len(), 5);
-        assert_eq!(t.chunk(2).vma, Some(0x2000_0000));
-        assert_eq!(t.chunk(2).lma, Some(0x0800_0040));
-        parts_b.chunks = Arc::new(t);
-    }
-
-    #[test]
     fn translate_spaces() {
         let b = cortex_m();
-        // .data + .bss by VMA: the runtime copy and the memory tail.
+        // .data + .bss by VMA.
         let u = b
             .chunks
             .to_unified(AddrSpace::Vma, Span::new(0x2000_0000, 0x2000_0030));
-        assert_eq!(u, vec![Span::new(0x60, 0x70), Span::new(0x110, 0x130)]);
-        // Flash by LMA: .text and the .data image.
+        assert_eq!(u, vec![Span::new(0x50, 0x60), Span::new(0x100, 0x120)]);
+        // Flash by LMA: .text and .data's initial values.
         let u = b
             .chunks
             .to_unified(AddrSpace::Lma, Span::new(0x0800_0000, 0x0800_0050));
         assert_eq!(u, vec![Span::new(0x10, 0x50), Span::new(0x50, 0x60)]);
         let u = b.chunks.to_unified(AddrSpace::File, Span::new(0x58, 0x70));
-        assert_eq!(u, vec![Span::new(0x58, 0x60), Span::new(0x70, 0x80)]);
-    }
-
-    #[test]
-    fn data_places_cover_both_copies() {
-        let b = cortex_m();
-        let data = &b.sections[1];
-        let mut covered = Vec::new();
-        for (space, span) in b.section_places(data) {
-            covered.extend(b.chunks.to_unified(space, span));
-        }
-        covered.sort();
-        assert_eq!(covered, vec![Span::new(0x50, 0x60), Span::new(0x60, 0x70)]);
+        assert_eq!(u, vec![Span::new(0x58, 0x60), Span::new(0x60, 0x70)]);
     }
 }

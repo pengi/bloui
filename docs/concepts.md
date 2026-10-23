@@ -54,20 +54,14 @@ in every space they're in. The chunks come from the loadable segments
 VMA or LMA. The memory-only part of a segment (`.bss`, `.stack`) has a VMA
 but no file offset and no LMA, as nothing is loaded for it.
 
-### Load images and runtime copies
+### Where `.data` counts
 
 On a microcontroller, `.data` is stored in flash (its LMA) and copied to RAM
-(its VMA) at startup, so it takes room in both. Bloui models that as two
-chunks:
-
-- the **load image**: the bytes in the file, at the LMA in flash;
-- the **runtime copy**: at the VMA in RAM, with no content of its own.
-
-Both take memory. So with a split by memory region, `.data` shows up in
-FLASH and in RAM, and the regions add up to their real use. This is done
-for every segment whose LMA differs from its VMA. Turn it off with
-`open-file`'s `load_copies = false` for binaries where the physical address
-means something else (an OS kernel, say).
+(its VMA) at startup. Bloui counts it **once, where it is stored: in flash**.
+A split by section still shows it as `.data`, and a filter by RAM address
+range still finds it. Its runtime copy in RAM is not counted as used (or as
+free), so RAM adds up to its size minus `.data`. A stage that adds the RAM
+copy as its own bytes may come later.
 
 Dimensions label ranges in whichever space suits them, and Bloui translates
 the labels through the chunk table. That's why a split by section (labeled by
@@ -81,22 +75,23 @@ Every node in the tree has three sizes:
 | Metric   | What it counts |
 |----------|----------------|
 | `file`   | bytes in the ELF file |
-| `memory` | address space taken in any memory: code and constants in flash, `.data`'s image in flash *and* its copy in RAM, `.bss`, stack, free space |
-| `load`   | bytes with content that take memory: the flash image |
+| `memory` | bytes allocated at runtime: code, constants, `.data`, `.bss`, stack (and free space, when added) |
+| `load`   | bytes with content that are allocated: the flash image |
 
 So for firmware, `load` is the flash image, and `memory` split by memory
-region shows how full each region is. `.data` counts twice in `memory`
-(see above), once in `load` and once in `file`.
+region shows how full each region is. Dynamically allocated memory (heap)
+isn't visible yet.
 
 ## Memory regions and free space
 
 Memory regions (`FLASH`, `RAM`, …) come from the linker map's "Memory
 Configuration", or from a `memory-regions` stage. The `memory-region`
-dimension places each byte by its runtime address, or its load address for
-a load image.
+dimension places each byte where it is stored: by its load address if it
+has content, otherwise (`.bss`, stack) by its runtime address.
 
 The `free-space` stage adds the unused part of each region as `[free]`
-bytes, so a region's `memory` size is its full length:
+bytes, so a region's `memory` size is its full length (RAM less the
+runtime copy of `.data`):
 
 ```console
 $ bloui-cli -i fw.elf -s memory-region --free -d 1

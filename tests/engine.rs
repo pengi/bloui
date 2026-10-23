@@ -134,8 +134,8 @@ fn flash_and_ram_by_space() {
         Metric::Memory,
     );
     assert_eq!(t.root().sizes.memory, 0x1a4 + 0x404);
-    // The RAM copy of .data has no content of its own: nothing loads there.
-    assert_eq!(t.root().sizes.load, 0);
+    // .data by its runtime address, with its content.
+    assert_eq!(t.root().sizes.load, 8);
 
     // Flash by load address includes .data's initial values.
     let t = tree(

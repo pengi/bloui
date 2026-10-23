@@ -8,7 +8,6 @@ use crate::dimension::Dimension;
 use crate::engine::{ResolvedLabels, translate};
 use crate::model::{Availability, Binary, BinaryId, Fragment, FragmentSet, Interner, Label};
 use crate::param::{ParamSpec, ParamValues};
-use crate::reader::ReadOptions;
 use crate::registry::Registry;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -74,8 +73,8 @@ impl PipelineState {
     }
 }
 
-/// Path, reader id, display name and options of a loaded file.
-type FileKey = (PathBuf, String, String, ReadOptions);
+/// Path, reader id and display name of a loaded file.
+type FileKey = (PathBuf, String, String);
 
 /// State that lives across runs: the interner and caches.
 pub struct PipelineCtx {
@@ -185,14 +184,12 @@ impl PipelineCtx {
         path: &Path,
         reader: Option<&str>,
         name: &str,
-        opts: ReadOptions,
     ) -> Result<Arc<Binary>> {
         let mtime = std::fs::metadata(path).and_then(|m| m.modified()).ok();
         let key = (
             path.to_owned(),
             reader.unwrap_or("").to_owned(),
             name.to_owned(),
-            opts,
         );
         if let Some((t, b)) = self.files.get(&key)
             && *t == mtime
@@ -205,7 +202,6 @@ impl PipelineCtx {
             path,
             reader,
             name.to_owned(),
-            opts,
         )?);
         self.files.insert(key, (mtime, bin.clone()));
         Ok(bin)

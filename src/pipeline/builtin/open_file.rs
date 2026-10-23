@@ -3,7 +3,6 @@ use super::attach_linkmap;
 use crate::model::{BinaryId, Fragment};
 use crate::param::{ParamSpec, ParamValues};
 use crate::pipeline::{PipelineCtx, PipelineState, Stage, StageFactory, StageKind};
-use crate::reader::ReadOptions;
 use crate::registry::Registry;
 use crate::{Error, Result};
 use std::path::PathBuf;
@@ -39,10 +38,6 @@ impl StageFactory for OpenFile {
                     ("off", "Don't look for one"),
                 ],
             ),
-            ParamSpec::bool("load_copies", "Split load copies", true).help(
-                "Count bytes whose load address differs from their runtime address \
-                 (.data) both where they are loaded from and where they run",
-            ),
         ]
     }
     fn create(&self, params: &ParamValues, _registry: &Registry) -> Result<Box<dyn Stage>> {
@@ -66,9 +61,6 @@ impl StageFactory for OpenFile {
             name,
             reader,
             auto_map: params.text("map") == "auto",
-            opts: ReadOptions {
-                split_copies: params.bool("load_copies"),
-            },
         }))
     }
 }
@@ -78,13 +70,12 @@ struct Open {
     name: String,
     reader: Option<String>,
     auto_map: bool,
-    opts: ReadOptions,
 }
 
 impl Stage for Open {
     fn apply(&self, ctx: &mut PipelineCtx, mut state: PipelineState) -> Result<PipelineState> {
         let path = ctx.resolve_path(&self.path);
-        let mut bin = ctx.open_binary(&path, self.reader.as_deref(), &self.name, self.opts)?;
+        let mut bin = ctx.open_binary(&path, self.reader.as_deref(), &self.name)?;
         if self.auto_map
             && let Some(map) = crate::linkmap::find_next_to(&path)
         {

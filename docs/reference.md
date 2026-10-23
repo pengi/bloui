@@ -15,7 +15,6 @@ Loads a binary and adds all its bytes.
 | `name` | file name | name shown in the tree (`file` dimension) |
 | `reader` | `auto` | `auto` or `elf` |
 | `map` | `auto` | `auto`: attach `fw.map` or `fw.elf.map` next to `fw.elf` if there is one; `off` |
-| `load_copies` | `true` | split bytes whose load and runtime addresses differ into a load image and a runtime copy (see [Concepts](concepts.md#load-images-and-runtime-copies)) |
 
 Levels split before this stage are applied to the new file's bytes too.
 Filters before it are not.
@@ -100,8 +99,8 @@ Keeps bytes by where they are.
 Parameters:
 
 - `symbol`: `fallback` = `section` or `none`.
-- `memory-region`: `by` = `auto` (runtime address, or load address for load
-  images), `vma` or `lma`.
+- `memory-region`: `by` = `auto` (load address for bytes with content, so
+  `.data` is in flash; runtime address otherwise), `vma` or `lma`.
 - `object-file`: `archives` = `nest` (`libhal.a` › `gpio.o`), `flat`
   (`libhal.a(gpio.o)`) or `archive` (`libhal.a` only); `paths` = `short`
   (file names) or `full` (as in the map).

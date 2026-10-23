@@ -25,6 +25,6 @@ section,symbol,file,memory,load
 .rodata,banner,27,27,27
 .rodata,digits.0,17,17,17
 .isr_vector,vector_table,160,160,160
-.data,boot_count,4,8,4
-.data,system_core_clock,4,8,4
 .ARM.exidx,[no symbol],8,8,8
+.data,boot_count,4,4,4
+.data,system_core_clock,4,4,4

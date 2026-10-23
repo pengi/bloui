@@ -23,7 +23,7 @@ impl DimensionFactory for RegionDim {
             &[
                 (
                     "auto",
-                    "Where they are: runtime address, or load address for load images",
+                    "Where they are stored: load address if they have content, else runtime address",
                 ),
                 ("vma", "Runtime address"),
                 ("lma", "Load address"),
@@ -43,7 +43,7 @@ impl DimensionFactory for RegionDim {
         let spaces: &[AddrSpace] = match params.text("by") {
             "vma" => &[AddrSpace::Vma],
             "lma" => &[AddrSpace::Lma],
-            _ => &[AddrSpace::Vma, AddrSpace::Lma],
+            _ => &[AddrSpace::Lma, AddrSpace::Vma],
         };
         Ok(Box::new(Regions { spaces }))
     }
@@ -59,7 +59,9 @@ impl Dimension for Regions {
             Overlap::FirstWins,
             Label::single(interner.intern("[no region]")),
         );
-        // Runtime addresses first, so they win where a chunk has both.
+        // In `auto`, load addresses come first, so they win for bytes that
+        // have both: `.data` counts where it is stored, in flash. Bytes
+        // without a load address (`.bss`) are placed by runtime address.
         for &space in self.spaces {
             for r in bin.memory_regions() {
                 l.push(space, r.span(), Label::single(interner.intern(&r.name)));

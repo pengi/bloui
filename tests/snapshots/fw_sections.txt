@@ -1,12 +1,12 @@
      FILE    MEMORY      LOAD      %M  section
-    18976      3116      1668  100.0%  TOTAL
-     1320      1320      1320   42.4%  ├─ .text
-        0      1028         0   33.0%  ├─ .stack
-        0       412         0   13.2%  ├─ .bss
+    18976      3108      1668  100.0%  TOTAL
+     1320      1320      1320   42.5%  ├─ .text
+        0      1028         0   33.1%  ├─ .stack
+        0       412         0   13.3%  ├─ .bss
       172       172       172    5.5%  ├─ .rodata
       160       160       160    5.1%  ├─ .isr_vector
-        8        16         8    0.5%  ├─ .data
         8         8         8    0.3%  ├─ .ARM.exidx
+        8         8         8    0.3%  ├─ .data
        47         0         0    0.0%  ├─ .ARM.attributes
        69         0         0    0.0%  ├─ .comment
      1462         0         0    0.0%  ├─ .debug_abbrev
