@@ -89,6 +89,8 @@ pub struct PipelineCtx {
     files: HashMap<FileKey, (Option<SystemTime>, Arc<Binary>)>,
     derived: HashMap<(u64, String), Arc<Binary>>,
     notes: Vec<String>,
+    /// Files the running stage read (or tried to).
+    read: Vec<PathBuf>,
 }
 
 impl PipelineCtx {
@@ -101,6 +103,7 @@ impl PipelineCtx {
             files: HashMap::new(),
             derived: HashMap::new(),
             notes: Vec::new(),
+            read: Vec::new(),
         }
     }
 
@@ -116,6 +119,18 @@ impl PipelineCtx {
 
     pub(crate) fn take_notes(&mut self) -> Vec<String> {
         std::mem::take(&mut self.notes)
+    }
+
+    /// Record that the running stage reads `path`, so frontends can watch
+    /// it. Done before reading, so a missing file is watched too.
+    pub fn reads_file(&mut self, path: &Path) {
+        if !self.read.iter().any(|p| p == path) {
+            self.read.push(path.to_owned());
+        }
+    }
+
+    pub(crate) fn take_read_files(&mut self) -> Vec<PathBuf> {
+        std::mem::take(&mut self.read)
     }
 
     /// A dimension's labels for a binary, cached by binary and `key`.
@@ -188,6 +203,7 @@ impl PipelineCtx {
         reader: Option<&str>,
         name: &str,
     ) -> Result<Arc<Binary>> {
+        self.reads_file(path);
         let mtime = std::fs::metadata(path).and_then(|m| m.modified()).ok();
         let key = (
             path.to_owned(),

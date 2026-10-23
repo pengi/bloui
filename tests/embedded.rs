@@ -267,3 +267,22 @@ fn default_pipeline_for_an_input() {
     let t = AnalysisTree::build(&result.state, &runner.ctx.interner, Metric::Memory);
     assert!(find(&t, &[".text"]).is_some());
 }
+
+#[test]
+fn files_read_are_reported() {
+    let mut runner = Runner::new(Arc::new(Registry::builtin()));
+    let p = bloui::pipeline::Pipeline {
+        stages: vec![open(FW), split("section")],
+    };
+    let want = [fixture("cortexm/fw.elf"), fixture("cortexm/fw.map")];
+    assert_eq!(runner.run(&p).files(), want);
+    // Cached stages keep their files.
+    assert_eq!(runner.run(&p).files(), want);
+    // A missing input is reported too, so it can be watched.
+    let p = bloui::pipeline::Pipeline {
+        stages: vec![open("cortexm/missing.elf")],
+    };
+    let result = runner.run(&p);
+    assert!(result.errors().next().is_some());
+    assert_eq!(result.files(), [fixture("cortexm/missing.elf")]);
+}

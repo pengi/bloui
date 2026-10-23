@@ -4,6 +4,7 @@
 use crate::model::Sizes;
 use crate::pipeline::{Pipeline, PipelineCtx, PipelineState, StageConfig};
 use crate::registry::Registry;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -40,6 +41,8 @@ pub struct StageReport {
     pub stats: StageStats,
     /// Notes from the stage; warnings start with `warning: `.
     pub notes: Vec<String>,
+    /// Files the stage read (or tried to): inputs, linker maps.
+    pub files: Vec<PathBuf>,
 }
 
 pub struct RunResult {
@@ -48,6 +51,18 @@ pub struct RunResult {
 }
 
 impl RunResult {
+    /// Every file the pipeline read, for watching.
+    pub fn files(&self) -> Vec<PathBuf> {
+        let mut files: Vec<PathBuf> = self
+            .reports
+            .iter()
+            .flat_map(|r| r.files.iter().cloned())
+            .collect();
+        files.sort();
+        files.dedup();
+        files
+    }
+
     pub fn errors(&self) -> impl Iterator<Item = (usize, &str)> {
         self.reports
             .iter()
@@ -141,6 +156,7 @@ impl Runner {
                 fragments_out: in_count,
             },
             notes: Vec::new(),
+            files: Vec::new(),
         };
         if !config.enabled {
             return (input, pass(StageStatus::Disabled));
@@ -154,10 +170,12 @@ impl Runner {
         }
         let result = stage.apply(&mut self.ctx, (*input).clone());
         let notes = self.ctx.take_notes();
+        let files = self.ctx.take_read_files();
         match result {
             Ok(out) => {
                 let report = StageReport {
                     notes,
+                    files,
                     status: StageStatus::Ok,
                     stats: StageStats {
                         input: in_total,
@@ -171,6 +189,7 @@ impl Runner {
             Err(e) => {
                 let mut report = pass(StageStatus::Failed(e.to_string()));
                 report.notes = notes;
+                report.files = files;
                 (input, report)
             }
         }

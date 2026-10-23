@@ -8,5 +8,6 @@
 - [Development](development.md): building, testing, code layout, rules.
 
 Status: the backend, linker maps, memory regions, the treemap renderer,
-`bloui-cli` and a first GTK GUI work (milestones M1 to M4). The pipeline
-editor comes next; see [plan.md](../plan.md) for the roadmap.
+`bloui-cli` and the GTK GUI with its pipeline editor, legend, presets and
+file watching work (milestones M1 to M5). More dimensions and stages come
+next; see [plan.md](../plan.md) for the roadmap.

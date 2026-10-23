@@ -64,6 +64,13 @@ pub struct Window {
     legend: Rc<Legend>,
     zoom_out: gtk::Button,
     presets: gtk::MenuButton,
+    /// Rerun when an input file changes.
+    watch: gtk::CheckButton,
+    /// The files of the last run, and a monitor on each while watching.
+    files: RefCell<Vec<PathBuf>>,
+    monitors: RefCell<Vec<(PathBuf, gio::FileMonitor)>>,
+    /// A reload waiting for file changes to pause.
+    pending_reload: RefCell<Option<glib::SourceId>>,
     view: SharedView,
     doc: RefCell<Doc>,
     worker: Worker,
@@ -103,9 +110,6 @@ impl Window {
         let save = gtk::Button::from_icon_name("document-save-symbolic");
         save.set_tooltip_text(Some("Save the project (Ctrl+S)"));
         save.set_action_name(Some("win.save"));
-        let reload = gtk::Button::from_icon_name("view-refresh-symbolic");
-        reload.set_tooltip_text(Some("Reload the input files (F5)"));
-        reload.set_action_name(Some("win.reload"));
         header.pack_start(&open);
         header.pack_start(&save);
         let presets = gtk::MenuButton::builder()
@@ -113,7 +117,6 @@ impl Window {
             .tooltip_text("Apply a preset to the open inputs, or save one")
             .build();
         header.pack_start(&presets);
-        header.pack_end(&reload);
         header.pack_end(&labeled("Color by", &color_by));
         header.pack_end(&labeled("Metric", &metric));
         header.pack_end(&zoom_out);
@@ -164,8 +167,11 @@ impl Window {
             .margin_top(3)
             .margin_bottom(3)
             .build();
+        let watch = gtk::CheckButton::with_label("Watch files");
+        watch.set_active(true);
         status_bar.append(&status);
         status_bar.append(&notes);
+        status_bar.append(&watch);
 
         let content = gtk::Box::new(gtk::Orientation::Vertical, 0);
         content.append(&paned);
@@ -195,6 +201,10 @@ impl Window {
             legend,
             zoom_out,
             presets,
+            watch,
+            files: RefCell::new(Vec::new()),
+            monitors: RefCell::new(Vec::new()),
+            pending_reload: RefCell::new(None),
             view,
             doc: RefCell::new(Doc::default()),
             worker: Worker::new(registry.clone()),
@@ -326,6 +336,16 @@ impl Window {
                 this.treemap.queue_draw();
                 this.update_legend();
                 this.update_status();
+            }
+        });
+
+        let weak = Rc::downgrade(self);
+        self.watch.connect_toggled(move |w| {
+            let Some(this) = weak.upgrade() else { return };
+            this.update_monitors();
+            if w.is_active() {
+                // Files may have changed while not watching.
+                this.run(true);
             }
         });
 
@@ -642,6 +662,77 @@ impl Window {
         }
     }
 
+    /// Watch the files of the last run (or nothing, if watching is off).
+    fn update_monitors(self: &Rc<Self>) {
+        let files = if self.watch.is_active() {
+            self.files.borrow().clone()
+        } else {
+            Vec::new()
+        };
+        let mut monitors = self.monitors.borrow_mut();
+        monitors.retain(|(p, m)| {
+            let keep = files.contains(p);
+            if !keep {
+                m.cancel();
+            }
+            keep
+        });
+        for path in files {
+            if monitors.iter().any(|(p, _)| *p == path) {
+                continue;
+            }
+            let file = gio::File::for_path(&path);
+            let Ok(monitor) = file.monitor_file(
+                gio::FileMonitorFlags::WATCH_MOVES,
+                None::<&gio::Cancellable>,
+            ) else {
+                continue;
+            };
+            let weak = Rc::downgrade(self);
+            monitor.connect_changed(move |_, _, _, event| {
+                use gio::FileMonitorEvent as E;
+                let relevant = matches!(
+                    event,
+                    E::ChangesDoneHint
+                        | E::Created
+                        | E::Deleted
+                        | E::Renamed
+                        | E::MovedIn
+                        | E::MovedOut
+                );
+                if let (true, Some(this)) = (relevant, weak.upgrade()) {
+                    this.schedule_reload();
+                }
+            });
+            monitors.push((path, monitor));
+        }
+        let names: Vec<String> = monitors
+            .iter()
+            .map(|(p, _)| p.display().to_string())
+            .collect();
+        self.watch.set_tooltip_text(Some(&if names.is_empty() {
+            "Rerun when an input file changes".to_string()
+        } else {
+            format!("Watching:\n{}", names.join("\n"))
+        }));
+    }
+
+    /// Reload once the files have been quiet for a moment: builds write
+    /// them in several steps.
+    fn schedule_reload(self: &Rc<Self>) {
+        if let Some(id) = self.pending_reload.take() {
+            id.remove();
+        }
+        let weak = Rc::downgrade(self);
+        let id = glib::timeout_add_local_once(std::time::Duration::from_millis(500), move || {
+            if let Some(this) = weak.upgrade() {
+                this.pending_reload.take();
+                this.run(true);
+            }
+        });
+        self.pending_reload.replace(Some(id));
+    }
+
     /// Run soon, once edits pause (typing in a field gives many edits).
     fn schedule_run(self: &Rc<Self>) {
         if let Some(id) = self.pending.take() {
@@ -682,8 +773,10 @@ impl Window {
         });
     }
 
-    fn show(&self, out: Output) {
+    fn show(self: &Rc<Self>, out: Output) {
         self.doc.borrow_mut().reports = out.reports;
+        self.files.replace(out.files);
+        self.update_monitors();
         self.colors.replace(out.colors);
         let metric = self.selected_metric();
         let tree = if out.tree.sorted_by == metric {

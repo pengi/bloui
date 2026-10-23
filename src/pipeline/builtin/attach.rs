@@ -16,6 +16,7 @@ pub fn attach_linkmap(
     bin: &Arc<Binary>,
     path: &Path,
 ) -> Result<Arc<Binary>> {
+    ctx.reads_file(path);
     let mtime = std::fs::metadata(path).and_then(|m| m.modified()).ok();
     let key = format!("linkmap:{}:{mtime:?}", path.display());
     ctx.derive_binary(bin, &key, |b| {

@@ -33,8 +33,7 @@ pipeline pane, and the result follows every change.
   name; the metric and color choice are saved too), **Presets** (apply a
   [preset](project-files.md#presets) to the open inputs, or save the
   current stages as one), zoom out, the **metric** (file, memory or load, see
-  [concepts](concepts.md)), **color by**, and reload (F5), which reads the
-  input files again. Color by is either a tree level (tiles take the
+  [concepts](concepts.md)) and **color by**. Color by is either a tree level (tiles take the
   color of their label at that level) or any dimension ("dimension:
   object file"): then each tile takes the color of the label with the
   most bytes in it, without adding a level to the tree. A label has the
@@ -50,7 +49,10 @@ pipeline pane, and the result follows every change.
   outlines its tiles; clicking it selects the biggest node with it.
 - **Status bar**: the node under the mouse (or the selected node): path,
   size, share, address. When zoomed in, the zoom node comes first in
-  brackets.
+  brackets. On the right, the notes, and **Watch files**: while it is on
+  (the default), the result is redone when an input or linker map
+  changes on disk, half a second after the last write. Its tooltip lists
+  the watched files. F5 reloads by hand.
 
 ## Mouse and keys
 

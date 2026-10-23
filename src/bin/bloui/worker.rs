@@ -15,6 +15,8 @@ pub struct Output {
     pub reports: Vec<StageReport>,
     /// Labels of the dimension to color by, if one was asked for.
     pub colors: Option<Result<Arc<ColorLabels>, String>>,
+    /// The files the pipeline read.
+    pub files: Vec<PathBuf>,
 }
 
 /// Owns the `Runner`, so its per-stage cache survives between runs.
@@ -57,6 +59,7 @@ impl Worker {
             });
             Output {
                 tree: Arc::new(tree),
+                files: result.files(),
                 reports: result.reports,
                 colors,
             }
