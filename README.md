@@ -3,8 +3,8 @@
 A size analyzer for ELF files, like [bloaty](https://github.com/google/bloaty),
 aimed at embedded (Cortex-M) firmware first. The analysis is a pipeline of
 stages: open a file, split the bytes by section, symbol, memory region and
-more, filter some away, and look at the result as a tree (and, later, a
-treemap in a GTK GUI).
+more, filter some away, and look at the result as a tree, or as a tree
+list and a cushion treemap in the GTK GUI (`bloui`).
 
 ```console
 $ bloui-cli -i fw.elf -k load -s section -s symbol -m load -n 3

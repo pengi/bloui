@@ -18,7 +18,7 @@ pub use fragment::{Fragment, FragmentSet, LevelInfo};
 pub use intern::{Interner, Label, Sym};
 pub use linkmap::{InputSection, LinkMap, MemoryRegion, ObjectFile, OutputSection};
 pub use rangemap::{Overlap, RangeMap, RangeMapBuilder};
-pub use size::{Metric, Sizes};
+pub use size::{Metric, Sizes, human};
 
 /// Whether a stage or dimension can run on the current input.
 #[derive(Clone, Debug, PartialEq, Eq)]

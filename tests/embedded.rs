@@ -2,10 +2,12 @@
 //! Linker maps, memory regions and free space on the Cortex-M fixture.
 
 mod common;
-use bloui::engine::AnalysisTree;
+use bloui::engine::{AnalysisTree, Runner};
 use bloui::model::Metric;
 use bloui::param::ParamValue;
+use bloui::registry::Registry;
 use common::*;
+use std::sync::Arc;
 
 fn map() -> bloui::model::LinkMap {
     bloui::linkmap::load(&fixture("cortexm/fw.map")).unwrap()
@@ -245,4 +247,23 @@ fn stale_map_stage_fails() {
         bloui::engine::StageStatus::Failed(e) => assert!(e.contains("doesn't match"), "{e}"),
         s => panic!("{s:?}"),
     }
+}
+
+#[test]
+fn default_pipeline_for_an_input() {
+    // With a map: regions, free space, sections, symbols.
+    let p = bloui::project::for_input(&fixture(FW));
+    let (result, runner) = run(p.stages);
+    let t = AnalysisTree::build(&result.state, &runner.ctx.interner, Metric::Memory);
+    assert_eq!(t.levels.len(), 3);
+    assert!(find(&t, &["FLASH", "[free]"]).is_some());
+    assert!(find(&t, &["FLASH", ".text"]).is_some());
+    // Without one, the region stages are skipped and the rest still runs.
+    let p = bloui::project::for_input(&fixture(HOST));
+    let mut runner = Runner::new(Arc::new(Registry::builtin()));
+    let result = runner.run(&p);
+    let skipped: Vec<_> = result.errors().map(|(i, _)| i).collect();
+    assert_eq!(skipped, [1, 2]);
+    let t = AnalysisTree::build(&result.state, &runner.ctx.interner, Metric::Memory);
+    assert!(find(&t, &[".text"]).is_some());
 }

@@ -8,8 +8,9 @@ cargo build --no-default-features    # without GTK: lib and bloui-cli only
 cargo test
 ```
 
-The GUI (`bloui`, the `gui` feature, on by default) will need GTK 4
-development files: `sudo apt install libgtk-4-dev`.
+The GUI (`bloui`, the `gui` feature, on by default) needs GTK 4.14 or
+later with its development files: `sudo apt install libgtk-4-dev`. It uses
+gtk4-rs (MIT), plain GTK without libadwaita.
 
 ## Checks before each commit
 
@@ -56,7 +57,10 @@ src/
   view/        view state (selection, hover, zoom, keeps them across
                reruns) and the cached treemap view; frontends forward
                input here and paint the scene
-  bin/bloui/       GTK frontend
+  bin/bloui/       GTK frontend: app (startup), window (layout, actions,
+                   open/save), tree_view (ColumnView over a lazy
+                   TreeListModel), treemap (widget painting the scene),
+                   worker (runs the Runner off the GUI thread)
   bin/bloui-cli/   text frontend
 ```
 

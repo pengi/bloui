@@ -2,7 +2,7 @@
 //! Text and CSV output.
 
 use bloui::engine::{AnalysisTree, NodeId, StageReport, StageStatus};
-use bloui::model::{Metric, Sizes};
+use bloui::model::{Metric, Sizes, human};
 use bloui::param::{ParamKind, ParamSpec, ParamValue};
 use bloui::pipeline::Pipeline;
 use bloui::registry::Registry;
@@ -18,27 +18,6 @@ pub struct Options {
 impl Options {
     fn size(&self, v: u64) -> String {
         if self.bytes { v.to_string() } else { human(v) }
-    }
-}
-
-/// `999`, `1.00Ki`, `12.3Ki`, `123Ki`, `1.20Mi`.
-pub fn human(v: u64) -> String {
-    if v < 1024 {
-        return v.to_string();
-    }
-    let units = ["Ki", "Mi", "Gi", "Ti"];
-    let mut f = v as f64 / 1024.0;
-    let mut u = 0;
-    while f >= 1024.0 && u + 1 < units.len() {
-        f /= 1024.0;
-        u += 1;
-    }
-    if f < 10.0 {
-        format!("{f:.2}{}", units[u])
-    } else if f < 100.0 {
-        format!("{f:.1}{}", units[u])
-    } else {
-        format!("{f:.0}{}", units[u])
     }
 }
 
