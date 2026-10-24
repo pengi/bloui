@@ -120,6 +120,17 @@ next to `fw.elf`. A `linker-map` stage attaches one from elsewhere. Bloui
 checks that the map matches the binary (every section in both must have the
 same address and size), so a map from an older build isn't used by mistake.
 
+## Debug info
+
+With DWARF debug info (`-g`), bytes can be traced back to the source:
+`compile-unit` (the file given to the compiler: everything it produced,
+code and variables), `source-file` (the file each byte of code comes from
+by the line table, so a `static inline` function or a C++ template from a
+header is counted in the header; with `lines=on`, down to source lines).
+Code without debug info (assembly built without `-g`, libgcc) keeps its
+section label, like `[.text]`. Debug info is read only when a pipeline
+uses it.
+
 ## Treemap
 
 The treemap shows the result tree as nested rectangles, each with an area

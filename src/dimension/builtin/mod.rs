@@ -2,6 +2,7 @@
 //! The built-in dimensions.
 
 mod category;
+mod dwarf;
 mod file;
 mod object_file;
 mod region;
@@ -27,6 +28,8 @@ pub fn all() -> Vec<Box<dyn DimensionFactory>> {
         Box::new(region::RegionDim),
         Box::new(object_file::ObjectFileDim),
         Box::new(object_file::InputSectionDim),
+        Box::new(dwarf::CompileUnitDim),
+        Box::new(dwarf::SourceFileDim),
         Box::new(rules::RulesDim),
     ]
 }

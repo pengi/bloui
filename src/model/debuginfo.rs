@@ -97,6 +97,8 @@ pub struct Variable {
     /// From the variable's type, if it could be worked out.
     pub size: Option<u64>,
     pub unit: u32,
-    /// Where it is declared: index into [`DebugInfo::files`].
+    /// Where it is declared: index into [`DebugInfo::files`], and the
+    /// line (0 if unknown).
     pub file: Option<u32>,
+    pub line: u32,
 }

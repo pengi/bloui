@@ -1,0 +1,24 @@
+     FILE    MEMORY      LOAD      %L  source file › symbol
+      444       444       444  100.0%  TOTAL
+      134       134       134   30.2%  ├─ startup.cpp
+       68        68        68   15.3%  │  ├─ Reset_Handler
+       64        64        64   14.4%  │  ├─ vector_table
+        2         2         2    0.5%  │  └─ board::default_handler()
+      132       132       132   29.7%  ├─ main.cpp
+      104       104       104   23.4%  │  ├─ main
+       24        24        24    5.4%  │  ├─ app::tick()
+        4         4         4    0.9%  │  └─ SysTick_Handler
+      106       106       106   23.9%  ├─ drivers.h
+       30        30        30    6.8%  │  ├─ hw::RingBuffer<unsigned char, (unsigned int)64>::pop(unsigned char&)
+       30        30        30    6.8%  │  ├─ hw::RingBuffer<unsigned long, (unsigned int)16>::pop(unsigned long&)
+       24        24        24    5.4%  │  ├─ hw::RingBuffer<unsigned long, (unsigned int)16>::push(unsigned long) [clone .isra.0]
+       22        22        22    5.0%  │  └─ hw::RingBuffer<unsigned char, (unsigned int)64>::push(unsigned char) [clone .isra.0]
+       38        38        38    8.6%  ├─ [.rodata]
+       26        26        26    5.9%  │  ├─ app::(anonymous namespace)::banner
+       12        12        12    2.7%  │  └─ [.rodata]
+       30        30        30    6.8%  ├─ uart.cpp
+       16        16        16    3.6%  │  ├─ hw::uart::Port::write(char const*)
+        8         8         8    1.8%  │  ├─ hw::uart::Port::operator<<(char const*)
+        6         6         6    1.4%  │  └─ hw::uart::Port::write(unsigned char)
+        4         4         4    0.9%  └─ [.text]
+        4         4         4    0.9%     └─ [.text]

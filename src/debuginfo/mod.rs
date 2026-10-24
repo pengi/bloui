@@ -317,11 +317,11 @@ impl Builder<'_> {
                         continue;
                     }
                     let (name, linkage_name) = names(unit, entry.offset(), 0)?;
-                    let size = match follow(unit, entry.offset(), gimli::DW_AT_type, 0)? {
-                        Some(t) => type_size(unit, t, 0)?,
-                        None => None,
+                    let size = match inherited(unit, entry.offset(), gimli::DW_AT_type, 0)? {
+                        Some(AttributeValue::UnitRef(t)) => type_size(unit, t, 0)?,
+                        _ => None,
                     };
-                    let file = match (decl_file(unit, entry.offset(), 0)?, header) {
+                    let file = match (decl_file(unit, entry.offset())?, header) {
                         (Some(i), Some(h)) => Some(match file_ids.get(&i) {
                             Some(&f) => f,
                             None => {
@@ -339,6 +339,7 @@ impl Builder<'_> {
                         size,
                         unit: unit_index,
                         file,
+                        line: decl_line(unit, entry.offset())?,
                     });
                 }
                 _ => {}
@@ -404,43 +405,39 @@ fn names(
     Ok((name, linkage))
 }
 
-/// A reference attribute of an entry, or of the declaration it refers to.
-fn follow(
-    unit: UnitRef<'_, '_>,
+/// An attribute of an entry, or else of the entry it is an instance or
+/// definition of (`DW_AT_abstract_origin`, `DW_AT_specification`).
+fn inherited<'d>(
+    unit: UnitRef<'_, 'd>,
     offset: UnitOffset,
     at: gimli::DwAt,
     hops: u32,
-) -> gimli::Result<Option<UnitOffset>> {
+) -> gimli::Result<Option<AttributeValue<R<'d>>>> {
     let entry = unit.entry(offset)?;
-    if let Some(o) = reference(&entry, at)? {
-        return Ok(Some(o));
+    if let Some(v) = entry.attr_value(at)? {
+        return Ok(Some(v));
     }
     if hops < 4 {
         for origin in [gimli::DW_AT_abstract_origin, gimli::DW_AT_specification] {
             if let Some(o) = reference(&entry, origin)? {
-                return follow(unit, o, at, hops + 1);
+                return inherited(unit, o, at, hops + 1);
             }
         }
     }
     Ok(None)
 }
 
-fn decl_file(unit: UnitRef<'_, '_>, offset: UnitOffset, hops: u32) -> gimli::Result<Option<u64>> {
-    let entry = unit.entry(offset)?;
-    if let Some(v) = entry.attr_value(gimli::DW_AT_decl_file)? {
-        return Ok(match v {
-            AttributeValue::FileIndex(i) => Some(i),
-            v => v.udata_value(),
-        });
-    }
-    if hops < 4 {
-        for at in [gimli::DW_AT_abstract_origin, gimli::DW_AT_specification] {
-            if let Some(o) = reference(&entry, at)? {
-                return decl_file(unit, o, hops + 1);
-            }
-        }
-    }
-    Ok(None)
+fn decl_file(unit: UnitRef<'_, '_>, offset: UnitOffset) -> gimli::Result<Option<u64>> {
+    Ok(match inherited(unit, offset, gimli::DW_AT_decl_file, 0)? {
+        Some(AttributeValue::FileIndex(i)) => Some(i),
+        v => v.and_then(|v| v.udata_value()),
+    })
+}
+
+fn decl_line(unit: UnitRef<'_, '_>, offset: UnitOffset) -> gimli::Result<u32> {
+    Ok(inherited(unit, offset, gimli::DW_AT_decl_line, 0)?
+        .and_then(|v| v.udata_value())
+        .unwrap_or(0) as u32)
 }
 
 /// The address of a variable whose location is just `DW_OP_addr`.

@@ -337,3 +337,40 @@ fn rust_crates_top() {
         ],
     );
 }
+
+#[test]
+fn fw_compile_units() {
+    cli(
+        "fw_compile_units",
+        &[
+            "-i",
+            "cortexm/fw.elf",
+            "-s",
+            "memory-region",
+            "-s",
+            "compile-unit",
+            "-d",
+            "2",
+        ],
+    );
+}
+
+#[test]
+fn cxx_source_files() {
+    cli(
+        "cxx_source_files",
+        &[
+            "-i",
+            "cxx/fw.elf",
+            "-k",
+            "load",
+            "-m",
+            "load",
+            "-s",
+            "source-file",
+            "-s",
+            "symbol",
+            "--bytes",
+        ],
+    );
+}

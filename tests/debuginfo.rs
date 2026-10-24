@@ -142,3 +142,93 @@ fn host_and_debug_off() {
     assert!(host.attachments.debug.is_none());
     assert!(bloui::debuginfo::get(host).is_err());
 }
+
+fn split_with(dim: &str, params: &[(&str, &str)]) -> bloui::pipeline::StageConfig {
+    let mut map = bloui::param::ParamValues::new().with("id", text(dim));
+    for (k, v) in params {
+        map.set(k, text(v));
+    }
+    stage(
+        "split",
+        &[("dimension", bloui::param::ParamValue::Map(map))],
+    )
+}
+
+#[test]
+fn compile_units_match_object_files() {
+    use bloui::model::Metric;
+    for metric in [Metric::Load, Metric::Memory] {
+        let cu = tree(vec![open(FW), split("compile-unit")], metric);
+        let obj = tree(vec![open(FW), split("object-file")], metric);
+        assert_eq!(cu.root().sizes, obj.root().sizes);
+        for (unit, object) in [
+            ("main.c", vec!["main.o"]),
+            ("uart.c", vec!["uart.o"]),
+            ("vectors.c", vec!["vectors.o"]),
+            ("hal/gpio.c", vec!["libhal.a", "gpio.o"]),
+            ("hal/clock.c", vec!["libhal.a", "clock.o"]),
+        ] {
+            assert_eq!(
+                find(&cu, &[unit]).map(|n| n.sizes.get(metric)),
+                find(&obj, &object).map(|n| n.sizes.get(metric)),
+                "{unit} {metric:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn source_files_and_lines() {
+    use bloui::model::Metric;
+    let t = tree(vec![open("cxx/fw.elf"), split("source-file")], Metric::Load);
+    // RingBuffer's push and pop instances.
+    assert_eq!(
+        find(&t, &["drivers.h"]).map(|n| n.sizes.load),
+        Some(0x16 + 0x18 + 2 * 0x1e)
+    );
+    let t = tree(
+        vec![open(FW), split_with("source-file", &[("lines", "on")])],
+        Metric::Load,
+    );
+    // crc_table is declared on main.c line 11.
+    assert_eq!(
+        find(&t, &["main.c", ":11"]).map(|n| n.sizes.load),
+        Some(128)
+    );
+    let main = find(&t, &["main.c"]).unwrap();
+    let sum: u64 = main.children.iter().map(|&c| t.node(c).sizes.load).sum();
+    assert_eq!(sum, main.sizes.load);
+    let t = tree(
+        vec![open(FW), split_with("source-file", &[("paths", "name")])],
+        Metric::Load,
+    );
+    assert!(find(&t, &["gpio.c"]).is_some());
+}
+
+#[test]
+fn rust_compile_units() {
+    use bloui::model::Metric;
+    let t = tree(
+        vec![open("rust/fw.elf"), split("compile-unit")],
+        Metric::Load,
+    );
+    assert!(find(&t, &["fw: main.rs"]).is_some());
+    assert!(find(&t, &["core: library/core/src/lib.rs"]).is_some());
+}
+
+#[test]
+fn dwarf_dimensions_need_debug_info() {
+    let off = stage(
+        "open-file",
+        &[
+            ("path", text(&fixture(FW).to_string_lossy())),
+            ("debug", text("off")),
+        ],
+    );
+    let mut runner = bloui::engine::Runner::new(Arc::new(bloui::registry::Registry::builtin()));
+    let result = runner.run(&bloui::pipeline::Pipeline {
+        stages: vec![off, split("compile-unit")],
+    });
+    let errors: Vec<_> = result.errors().map(|(i, e)| (i, e.to_string())).collect();
+    assert_eq!(errors, [(1, "no DWARF debug info".to_owned())]);
+}

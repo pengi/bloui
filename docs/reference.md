@@ -138,6 +138,8 @@ Drops a tree level, or cuts its path labels to a depth
 | `symbol-binding` | `global`, `weak`, `local` | like `symbol` |
 | `memory-region` | memory region, from the linker map or a `memory-regions` stage | `[no region]` |
 | `object-file` | object file from the linker map; archive members as `libhal.a` › `gpio.o` | `[<section>]`, `[fill]` for padding |
+| `compile-unit` | DWARF compile unit: `main.c`, `hal/gpio.c`; Rust units as `crate: path`. Code by the unit's ranges, variables by the unit they are defined in | `[<section>]`, `[no debug info]` |
+| `source-file` | file from the DWARF line table (code inlined from a header is the header's), variables by where they are declared; as a path: `hal` › `gpio.c`, absolute paths under `/` | `[<section>]`, `[no debug info]` |
 | `rules` | another dimension's labels, renamed by [rules](#rules) | the other dimension's, renamed too |
 | `input-section` | input section from the linker map, like `.text.uart_init` | `[<section>]`, `[fill]` for padding |
 
@@ -159,6 +161,11 @@ Parameters:
   without one are `[no namespace]`); and `demangle`, `hash`, `fallback`
   as for `symbol`.
 - `symbol-kind`, `symbol-binding`: `fallback` as for `symbol`.
+- `compile-unit`, `source-file`: `paths` = `relative` (relative to the
+  compile directory if inside it, else absolute), `name` (file name only)
+  or `full`. `source-file`: `lines` = `off` or `on` (a last level
+  `:<line>` per source line; still bytes, so it shows which lines cost
+  the most).
 - `rules`: `dimension` = the dimension whose labels are renamed (default
   `symbol`), with its own parameters; `rules`; `unmatched` = `keep` (the
   label as it is) or `other` (`[other]`). Available where that dimension
@@ -170,7 +177,16 @@ Parameters:
   (file names) or `full` (as in the map).
 
 `memory-region`, `object-file` and `input-section` are unavailable (the
-stage is skipped) for inputs without a linker map or memory regions.
+stage is skipped) for inputs without a linker map or memory regions;
+`compile-unit` and `source-file` for inputs without DWARF debug info.
+
+DWARF entries outside the binary's allocated sections are ignored: with
+`--gc-sections`, the debug info of dropped functions stays, at address 0.
+A variable's size is its symbol's, or its type's if it has no symbol.
+Rust code inlined from the standard library is named by the local
+`rust-src` path in the app's units and by `library/core/...` in core's
+own; `rules` can merge them, e.g.
+`rules=.*/(library/.*)=>$1` over `source-file`.
 
 Categories come from the section type and flags: `unwind` is `.ARM.exidx`,
 `.ARM.extab`, `.eh_frame*` and `.gcc_except_table`; `debug` is `.debug*`,

@@ -1,0 +1,34 @@
+     FILE    MEMORY      LOAD      %M  memory region › compile unit
+   18.5Ki    3.04Ki    1.63Ki  100.0%  TOTAL
+   1.63Ki    1.63Ki    1.63Ki   53.7%  ├─ FLASH
+      902       902       902   29.0%  │  ├─ [.text]
+      311       311       311   10.0%  │  ├─ main.c
+      221       221       221    7.1%  │  ├─ uart.c
+      162       162       162    5.2%  │  ├─ vectors.c
+       48        48        48    1.5%  │  ├─ hal/gpio.c
+       16        16        16    0.5%  │  ├─ hal/clock.c
+        8         8         8    0.3%  │  └─ [.ARM.exidx]
+        0    1.41Ki         0   46.3%  ├─ RAM
+        0    1.00Ki         0   33.1%  │  ├─ [.stack]
+        0       260         0    8.4%  │  ├─ main.c
+        0       136         0    4.4%  │  ├─ uart.c
+        0        16         0    0.5%  │  └─ hal/gpio.c
+   16.9Ki         0         0    0.0%  └─ [no region]
+       47         0         0    0.0%     ├─ [.ARM.attributes]
+       69         0         0    0.0%     ├─ [.comment]
+   1.43Ki         0         0    0.0%     ├─ [.debug_abbrev]
+      216         0         0    0.0%     ├─ [.debug_aranges]
+      408         0         0    0.0%     ├─ [.debug_frame]
+   2.04Ki         0         0    0.0%     ├─ [.debug_info]
+   1.56Ki         0         0    0.0%     ├─ [.debug_line]
+      203         0         0    0.0%     ├─ [.debug_line_str]
+      492         0         0    0.0%     ├─ [.debug_loclists]
+      225         0         0    0.0%     ├─ [.debug_rnglists]
+      672         0         0    0.0%     ├─ [.debug_str]
+      232         0         0    0.0%     ├─ [.shstrtab]
+      502         0         0    0.0%     ├─ [.strtab]
+   1.64Ki         0         0    0.0%     ├─ [.symtab]
+       52         0         0    0.0%     ├─ [ELF header]
+   6.21Ki         0         0    0.0%     ├─ [no debug info]
+      128         0         0    0.0%     ├─ [program headers]
+      880         0         0    0.0%     └─ [section headers]
