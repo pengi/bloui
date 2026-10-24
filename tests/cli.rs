@@ -392,3 +392,47 @@ fn fw_function_chain() {
         ],
     );
 }
+
+#[test]
+fn diff_symbols() {
+    cli(
+        "diff_symbols",
+        &[
+            "-i",
+            "diff/v2.elf",
+            "--base",
+            "diff/v1.elf",
+            "-k",
+            "load",
+            "-m",
+            "load",
+            "-s",
+            "symbol",
+            "--bytes",
+            "--order",
+            "delta",
+            "--changed",
+            "--stats",
+        ],
+    );
+}
+
+#[test]
+fn diff_csv() {
+    cli(
+        "diff_csv",
+        &[
+            "-i",
+            "diff/v2.elf",
+            "--base",
+            "diff/v1.elf",
+            "-s",
+            "memory-region",
+            "-s",
+            "object-file",
+            "--csv",
+            "-d",
+            "2",
+        ],
+    );
+}

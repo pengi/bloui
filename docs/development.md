@@ -143,6 +143,9 @@ and the built files, so tests don't need the toolchains:
   and their separate debug files: `linked.elf` (found by debug link),
   `plain.elf` (`plain.debug` next to it), `buildid.elf` (under
   `root/.build-id/`, with `root` as the debug directory).
+- `diff/`: two builds of a copy of the cortexm sources, `v1.elf` and
+  `v2.elf` (`-DV2`: a function added, one removed, a buffer and a string
+  grown), with maps, for diffs.
 - `host/`: a small x86-64 PIE built with `gcc`. `build.sh` rebuilds it.
 
 After rebuilding a fixture, update the numbers in the tests and the

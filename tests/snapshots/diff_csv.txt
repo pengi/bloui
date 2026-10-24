@@ -1,0 +1,25 @@
+memory region,object file,file,memory,load,base_file,base_memory,base_load
+FLASH,libgcc.a,844,844,844,844,844,844
+FLASH,main.o,401,401,401,311,311,311
+FLASH,vectors.o,162,162,162,162,162,162
+FLASH,uart.o,160,160,160,221,221,221
+FLASH,libhal.a,64,64,64,64,64,64
+FLASH,startup.o,64,64,64,64,64,64
+FLASH,[fill],5,5,5,2,2,2
+RAM,[fill],0,1028,0,0,1028,0
+RAM,main.o,0,516,0,0,260,0
+RAM,uart.o,0,136,0,0,136,0
+RAM,libhal.a,0,16,0,0,16,0
+[no region],[.shstrtab],232,0,0,232,0,0
+[no region],[.strtab],487,0,0,502,0,0
+[no region],[.symtab],1664,0,0,1680,0,0
+[no region],[ELF header],52,0,0,52,0,0
+[no region],[no object],6323,0,0,6355,0,0
+[no region],[program headers],128,0,0,128,0,0
+[no region],[section headers],880,0,0,880,0,0
+[no region],libgcc.a,299,0,0,299,0,0
+[no region],libhal.a,1495,0,0,1495,0,0
+[no region],main.o,2669,0,0,2265,0,0
+[no region],startup.o,33,0,0,33,0,0
+[no region],uart.o,1955,0,0,1955,0,0
+[no region],vectors.o,1439,0,0,1432,0,0

@@ -13,7 +13,7 @@ pub mod size;
 pub use addr::{AddrSpace, Span};
 pub use binary::{
     Attachments, Binary, BinaryId, BinaryParts, Bytes, Chunk, ChunkTable, FileRegion, FormatInfo,
-    Section, SectionKind, Segment, SegmentKind, Symbol, SymbolBinding, SymbolKind,
+    Role, Section, SectionKind, Segment, SegmentKind, Symbol, SymbolBinding, SymbolKind,
 };
 pub use debuginfo::{DebugInfo, DebugSource};
 pub use fragment::{Fragment, FragmentSet, LevelInfo};

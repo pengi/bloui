@@ -152,7 +152,7 @@ impl Runner {
         config: &StageConfig,
         input: Arc<PipelineState>,
     ) -> (Arc<PipelineState>, StageReport) {
-        let in_total = input.set.total();
+        let in_total = input.current_total();
         let in_count = input.set.fragments.len();
         let pass = |status| StageReport {
             status,
@@ -189,7 +189,7 @@ impl Runner {
                     status: StageStatus::Ok,
                     stats: StageStats {
                         input: in_total,
-                        output: out.set.total(),
+                        output: out.current_total(),
                         fragments_in: in_count,
                         fragments_out: out.set.fragments.len(),
                     },

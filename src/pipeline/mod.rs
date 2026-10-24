@@ -58,6 +58,20 @@ pub struct PipelineState {
 }
 
 impl PipelineState {
+    /// The sizes of the current build's fragments (a base build only
+    /// gives deltas).
+    pub fn current_total(&self) -> crate::model::Sizes {
+        self.set
+            .fragments
+            .iter()
+            .filter(|f| {
+                self.binaries
+                    .get(f.bin.0 as usize)
+                    .is_none_or(|b| b.role == crate::model::Role::Current)
+            })
+            .fold(crate::model::Sizes::default(), |acc, f| acc + f.sizes)
+    }
+
     pub fn binary(&self, id: BinaryId) -> &Arc<Binary> {
         &self.binaries[id.0 as usize]
     }

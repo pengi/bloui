@@ -459,6 +459,15 @@ pub struct Attachments {
     pub debug: Option<Arc<super::DebugSource>>,
 }
 
+/// Which build an input is, when comparing two.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum Role {
+    #[default]
+    Current,
+    /// The build to compare against: it only gives the deltas.
+    Base,
+}
+
 /// A loaded binary, independent of its file format. Cheap to clone; a
 /// stage that changes a binary clones it and gives it a new `uid`.
 #[derive(Debug, Clone)]
@@ -476,6 +485,7 @@ pub struct Binary {
     pub symbols: Arc<Vec<Symbol>>,
     pub chunks: Arc<ChunkTable>,
     pub attachments: Attachments,
+    pub role: Role,
 }
 
 pub struct BinaryParts {
@@ -526,6 +536,7 @@ impl Binary {
             symbols: Arc::new(symbols),
             chunks: Arc::new(chunks),
             attachments: Attachments::default(),
+            role: Role::Current,
         }
     }
 

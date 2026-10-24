@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 //! Text and CSV output.
 
-use bloui::engine::{AnalysisTree, NodeId, StageReport, StageStatus};
+use bloui::engine::{AnalysisTree, Change, Node, NodeId, StageReport, StageStatus};
 use bloui::model::{Metric, Sizes, human};
 use bloui::param::{ParamKind, ParamSpec, ParamValue};
 use bloui::pipeline::Pipeline;
@@ -20,6 +20,14 @@ impl Options {
     fn size(&self, v: u64) -> String {
         if self.bytes { v.to_string() } else { human(v) }
     }
+
+    fn signed(&self, d: i64) -> String {
+        match d {
+            0 => "0".into(),
+            d if d > 0 => format!("+{}", self.size(d as u64)),
+            d => format!("-{}", self.size(d.unsigned_abs())),
+        }
+    }
 }
 
 fn percent(part: u64, total: u64) -> String {
@@ -31,6 +39,37 @@ fn percent(part: u64, total: u64) -> String {
 }
 
 fn row(out: &mut String, o: &Options, sizes: Sizes, total: u64, name: &str) {
+    row_diff(out, o, sizes, None, total, name);
+}
+
+/// With `base`: the base size, the size, the change and the change in
+/// percent of the base, for the metric.
+fn row_diff(
+    out: &mut String,
+    o: &Options,
+    sizes: Sizes,
+    base: Option<Sizes>,
+    total: u64,
+    name: &str,
+) {
+    if let Some(base) = base {
+        let (cur, old) = (sizes.get(o.sort), base.get(o.sort));
+        let delta = cur as i64 - old as i64;
+        let change = if old == 0 {
+            if cur == 0 { "".into() } else { "new".into() }
+        } else {
+            format!("{:+.1}%", delta as f64 * 100.0 / old as f64)
+        };
+        let _ = writeln!(
+            out,
+            "{:>9} {:>9} {:>9} {:>7}  {name}",
+            o.size(old),
+            o.size(cur),
+            o.signed(delta),
+            change,
+        );
+        return;
+    }
     let _ = writeln!(
         out,
         "{:>9} {:>9} {:>9} {:>7}  {name}",
@@ -41,26 +80,50 @@ fn row(out: &mut String, o: &Options, sizes: Sizes, total: u64, name: &str) {
     );
 }
 
+/// A node's row: with base columns if the tree has a base build.
+fn node_row(out: &mut String, tree: &AnalysisTree, o: &Options, n: &Node, total: u64, name: &str) {
+    if !tree.has_base {
+        return row(out, o, n.sizes, total, name);
+    }
+    let name = match n.change(o.sort) {
+        Change::New => format!("{name} (new)"),
+        Change::Removed => format!("{name} (removed)"),
+        _ => name.to_owned(),
+    };
+    row_diff(out, o, n.sizes, Some(n.base), total, &name);
+}
+
 pub fn tree(out: &mut String, tree: &AnalysisTree, o: &Options) {
     let levels: Vec<_> = tree.levels.iter().map(|l| l.name.as_str()).collect();
-    let _ = writeln!(
-        out,
-        "{:>9} {:>9} {:>9} {:>7}  {}",
-        "FILE",
-        "MEMORY",
-        "LOAD",
-        format!(
-            "%{}",
-            o.sort.name().chars().next().unwrap().to_ascii_uppercase()
-        ),
-        if levels.is_empty() {
-            "NAME".to_owned()
-        } else {
-            levels.join(" › ")
-        }
-    );
+    let names = if levels.is_empty() {
+        "NAME".to_owned()
+    } else {
+        levels.join(" › ")
+    };
+    if tree.has_base {
+        let _ = writeln!(
+            out,
+            "{:>9} {:>9} {:>9} {:>7}  {names}",
+            "BASE",
+            o.sort.name().to_uppercase(),
+            "DELTA",
+            "CHANGE",
+        );
+    } else {
+        let _ = writeln!(
+            out,
+            "{:>9} {:>9} {:>9} {:>7}  {names}",
+            "FILE",
+            "MEMORY",
+            "LOAD",
+            format!(
+                "%{}",
+                o.sort.name().chars().next().unwrap().to_ascii_uppercase()
+            ),
+        );
+    }
     let total = tree.root().sizes.get(o.sort);
-    row(out, o, tree.root().sizes, total, "TOTAL");
+    node_row(out, tree, o, tree.root(), total, "TOTAL");
     children(out, tree, o, AnalysisTree::ROOT, "", total);
 }
 
@@ -87,16 +150,18 @@ fn children(
         let last = i + 1 == shown && rest.is_empty();
         let n = tree.node(kid);
         let name = format!("{prefix}{}{}", if last { "└─ " } else { "├─ " }, n.name);
-        row(out, o, n.sizes, total, &name);
+        node_row(out, tree, o, n, total, &name);
         let deeper = format!("{prefix}{}", if last { "   " } else { "│  " });
         children(out, tree, o, kid, &deeper, total);
     }
     if !rest.is_empty() {
-        let sizes = rest
-            .iter()
-            .fold(Sizes::default(), |a, &k| a + tree.node(k).sizes);
+        let sum = |f: fn(&Node) -> Sizes| {
+            rest.iter()
+                .fold(Sizes::default(), |a, &k| a + f(tree.node(k)))
+        };
         let name = format!("{prefix}└─ [{} more]", rest.len());
-        row(out, o, sizes, total, &name);
+        let base = tree.has_base.then(|| sum(|n| n.base));
+        row_diff(out, o, sum(|n| n.sizes), base, total, &name);
     }
 }
 
@@ -118,6 +183,9 @@ pub fn csv(out: &mut String, tree: &AnalysisTree, o: &Options) {
         .map(|l| csv_field(&l.name))
         .collect();
     header.extend(["file".into(), "memory".into(), "load".into()]);
+    if tree.has_base {
+        header.extend(["base_file".into(), "base_memory".into(), "base_load".into()]);
+    }
     let _ = writeln!(out, "{}", header.join(","));
     let mut stack = vec![AnalysisTree::ROOT];
     while let Some(id) = stack.pop() {
@@ -132,6 +200,10 @@ pub fn csv(out: &mut String, tree: &AnalysisTree, o: &Options) {
             cols.resize(levels.max(cols.len()), String::new());
             let s = node.sizes;
             cols.extend([s.file.to_string(), s.memory.to_string(), s.load.to_string()]);
+            if tree.has_base {
+                let b = node.base;
+                cols.extend([b.file.to_string(), b.memory.to_string(), b.load.to_string()]);
+            }
             let _ = writeln!(out, "{}", cols.join(","));
         } else {
             stack.extend(node.children.iter().rev());

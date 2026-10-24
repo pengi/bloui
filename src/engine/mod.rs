@@ -10,4 +10,4 @@ pub mod tree;
 pub use color::ColorLabels;
 pub use runner::{RunResult, Runner, StageReport, StageStats, StageStatus};
 pub use translate::ResolvedLabels;
-pub use tree::{AnalysisTree, Node, NodeId};
+pub use tree::{AnalysisTree, Change, Node, NodeId, SortKey};

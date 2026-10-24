@@ -40,6 +40,14 @@ impl StageFactory for OpenFile {
                 ],
             ),
             ParamSpec::choice(
+                "role",
+                "Role",
+                &[
+                    ("current", "The build to look at"),
+                    ("base", "A build to compare with: only gives the deltas"),
+                ],
+            ),
+            ParamSpec::choice(
                 "debug",
                 "Debug info",
                 &[
@@ -54,8 +62,13 @@ impl StageFactory for OpenFile {
     }
     fn summary(&self, p: &ParamValues, _registry: &Registry) -> String {
         let path = std::path::Path::new(p.text("path"));
+        let verb = if p.text("role") == "base" {
+            "compare with"
+        } else {
+            "open"
+        };
         match path.file_name() {
-            Some(n) => format!("open {}", n.to_string_lossy()),
+            Some(n) => format!("{verb} {}", n.to_string_lossy()),
             None => "open (no file)".into(),
         }
     }
@@ -81,6 +94,7 @@ impl StageFactory for OpenFile {
             reader,
             auto_map: params.text("map") == "auto",
             debug: params.text("debug") == "auto",
+            base: params.text("role") == "base",
         }))
     }
 }
@@ -91,6 +105,7 @@ struct Open {
     reader: Option<String>,
     auto_map: bool,
     debug: bool,
+    base: bool,
 }
 
 impl Stage for Open {
@@ -117,6 +132,11 @@ impl Stage for Open {
             } else if let Some(b) = super::find_debug_file(ctx, &bin) {
                 bin = b;
             }
+        }
+        if self.base {
+            bin = ctx.derive_binary(&bin, "role:base", |b| {
+                Ok(b.derive(|d| d.role = crate::model::Role::Base))
+            })?;
         }
         let id = BinaryId(state.binaries.len() as u32);
         let fragments = bin

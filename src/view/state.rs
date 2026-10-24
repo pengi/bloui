@@ -17,7 +17,7 @@ pub struct ViewState {
 
 impl ViewState {
     pub fn new(tree: Arc<AnalysisTree>) -> Self {
-        let metric = tree.sorted_by;
+        let metric = tree.sorted_by.metric().unwrap_or_default();
         ViewState {
             tree,
             metric,

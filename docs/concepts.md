@@ -135,6 +135,18 @@ section label, like `[.text]`. Debug info is read only when a pipeline
 uses it. It can also come from a separate debug file (see `debug-file`
 in the reference), found automatically for stripped binaries.
 
+## Diffs
+
+Two builds can be compared: one input is the **current** build, another
+(`open-file role=base`, `--base` on the command line) the **base**. Every
+stage works on both; the tree adds up each node's size in the current
+build and, separately, in the base, so each node knows its change: grown,
+shrunk, new, removed or unchanged. The current build is what the tree and
+the treemap show; something removed stays in the tree with size 0 and a
+negative change. Labels are matched by name (sections, symbols with
+demangled names and stripped Rust hashes, object files, …), not by
+address. Several inputs of the same role add up (bootloader and app).
+
 ## Treemap
 
 The treemap shows the result tree as nested rectangles, each with an area

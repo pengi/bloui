@@ -3,7 +3,7 @@
 
 mod output;
 
-use bloui::engine::{AnalysisTree, ColorLabels, Runner, StageStatus};
+use bloui::engine::{AnalysisTree, ColorLabels, Runner, SortKey, StageStatus};
 use bloui::model::Metric;
 use bloui::param::{ParamKind, ParamSpec, ParamValue, ParamValues};
 use bloui::pipeline::StageConfig;
@@ -28,6 +28,11 @@ struct Cli {
     /// Add an input file (open-file stage).
     #[arg(short, long, value_name = "FILE")]
     input: Vec<String>,
+
+    /// Compare with this build: an input that only gives the deltas
+    /// (open-file role=base). Its map and debug info are found as for -i.
+    #[arg(long, value_name = "FILE")]
+    base: Vec<String>,
 
     /// Split by a dimension, adding a tree level: `section`,
     /// `symbol:fallback=none`.
@@ -74,6 +79,15 @@ struct Cli {
     /// project's or preset's, else memory.
     #[arg(short = 'm', long, value_name = "file|memory|load")]
     sort: Option<String>,
+
+    /// Order of children: by size, by change from the base (biggest
+    /// either way first), or by name.
+    #[arg(long, default_value = "size", value_name = "size|delta|name")]
+    order: String,
+
+    /// With --base: show only what changed.
+    #[arg(long)]
+    changed: bool,
 
     /// Show at most this many tree levels.
     #[arg(short, long)]
@@ -227,7 +241,16 @@ fn run(cli: &Cli, matches: &ArgMatches) -> Result<ExitCode, String> {
             _ => {}
         }
     }
-    let tree = AnalysisTree::build(&result.state, &runner.ctx.interner, sort);
+    let mut tree = AnalysisTree::build(&result.state, &runner.ctx.interner, sort);
+    tree.sort_by(match cli.order.as_str() {
+        "size" => SortKey::Size(sort),
+        "delta" => SortKey::Delta(sort),
+        "name" => SortKey::Name,
+        o => return Err(format!("--order expects size, delta or name, got '{o}'")),
+    });
+    if cli.changed {
+        tree = tree.changed_only();
+    }
     let opts = output::Options {
         sort,
         depth: cli.depth,
@@ -309,6 +332,14 @@ fn inline_stages(
         Ok(StageConfig::new(
             "open-file",
             ParamValues::new().with("path", path_value(v)?),
+        ))
+    })?;
+    add("base", &cli.base, &mut |v| {
+        Ok(StageConfig::new(
+            "open-file",
+            ParamValues::new()
+                .with("path", path_value(v)?)
+                .with("role", ParamValue::Text("base".into())),
         ))
     })?;
     add("map", &cli.map, &mut |v| {

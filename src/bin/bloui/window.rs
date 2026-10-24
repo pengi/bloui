@@ -783,7 +783,7 @@ impl Window {
         self.update_monitors();
         self.colors.replace(out.colors);
         let metric = self.selected_metric();
-        let tree = if out.tree.sorted_by == metric {
+        let tree = if out.tree.sorted_by == bloui::engine::SortKey::Size(metric) {
             out.tree
         } else {
             resorted(&out.tree, metric)

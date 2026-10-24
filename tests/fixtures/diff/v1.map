@@ -1,0 +1,308 @@
+Archive member included to satisfy reference by file (symbol)
+
+build/libhal.a(clock.o)       build/main.o (clock_init)
+build/libhal.a(gpio.o)        build/main.o (gpio_init)
+/nix/store/3y7lyg1ykgxhlb9sa5iy0gb8hnshb302-gcc-arm-embedded-15.2.rel1/bin/../lib/gcc/arm-none-eabi/15.2.1/thumb/v7e-m/nofp/libgcc.a(_aeabi_uldivmod.o)
+                              build/main.o (__aeabi_uldivmod)
+/nix/store/3y7lyg1ykgxhlb9sa5iy0gb8hnshb302-gcc-arm-embedded-15.2.rel1/bin/../lib/gcc/arm-none-eabi/15.2.1/thumb/v7e-m/nofp/libgcc.a(_udivmoddi4.o)
+                              /nix/store/3y7lyg1ykgxhlb9sa5iy0gb8hnshb302-gcc-arm-embedded-15.2.rel1/bin/../lib/gcc/arm-none-eabi/15.2.1/thumb/v7e-m/nofp/libgcc.a(_aeabi_uldivmod.o) (__udivmoddi4)
+/nix/store/3y7lyg1ykgxhlb9sa5iy0gb8hnshb302-gcc-arm-embedded-15.2.rel1/bin/../lib/gcc/arm-none-eabi/15.2.1/thumb/v7e-m/nofp/libgcc.a(_dvmd_tls.o)
+                              /nix/store/3y7lyg1ykgxhlb9sa5iy0gb8hnshb302-gcc-arm-embedded-15.2.rel1/bin/../lib/gcc/arm-none-eabi/15.2.1/thumb/v7e-m/nofp/libgcc.a(_aeabi_uldivmod.o) (__aeabi_ldiv0)
+
+Discarded input sections
+
+ .text          0x00000000        0x0 build/startup.o
+ .data          0x00000000        0x0 build/startup.o
+ .bss           0x00000000        0x0 build/startup.o
+ .text          0x00000000        0x0 build/vectors.o
+ .data          0x00000000        0x0 build/vectors.o
+ .bss           0x00000000        0x0 build/vectors.o
+ .text          0x00000000        0x0 build/main.o
+ .data          0x00000000        0x0 build/main.o
+ .bss           0x00000000        0x0 build/main.o
+ .rodata.unused_function.str1.1
+                0x00000000        0x6 build/main.o
+ .text.unused_function
+                0x00000000        0xc build/main.o
+ .text          0x00000000        0x0 build/uart.o
+ .data          0x00000000        0x0 build/uart.o
+ .bss           0x00000000        0x0 build/uart.o
+ .text          0x00000000        0x0 build/libhal.a(clock.o)
+ .data          0x00000000        0x0 build/libhal.a(clock.o)
+ .bss           0x00000000        0x0 build/libhal.a(clock.o)
+ .text          0x00000000        0x0 build/libhal.a(gpio.o)
+ .data          0x00000000        0x0 build/libhal.a(gpio.o)
+ .bss           0x00000000        0x0 build/libhal.a(gpio.o)
+ .data          0x00000000        0x0 /nix/store/3y7lyg1ykgxhlb9sa5iy0gb8hnshb302-gcc-arm-embedded-15.2.rel1/bin/../lib/gcc/arm-none-eabi/15.2.1/thumb/v7e-m/nofp/libgcc.a(_aeabi_uldivmod.o)
+ .bss           0x00000000        0x0 /nix/store/3y7lyg1ykgxhlb9sa5iy0gb8hnshb302-gcc-arm-embedded-15.2.rel1/bin/../lib/gcc/arm-none-eabi/15.2.1/thumb/v7e-m/nofp/libgcc.a(_aeabi_uldivmod.o)
+ .text          0x00000000        0x0 /nix/store/3y7lyg1ykgxhlb9sa5iy0gb8hnshb302-gcc-arm-embedded-15.2.rel1/bin/../lib/gcc/arm-none-eabi/15.2.1/thumb/v7e-m/nofp/libgcc.a(_udivmoddi4.o)
+ .data          0x00000000        0x0 /nix/store/3y7lyg1ykgxhlb9sa5iy0gb8hnshb302-gcc-arm-embedded-15.2.rel1/bin/../lib/gcc/arm-none-eabi/15.2.1/thumb/v7e-m/nofp/libgcc.a(_udivmoddi4.o)
+ .bss           0x00000000        0x0 /nix/store/3y7lyg1ykgxhlb9sa5iy0gb8hnshb302-gcc-arm-embedded-15.2.rel1/bin/../lib/gcc/arm-none-eabi/15.2.1/thumb/v7e-m/nofp/libgcc.a(_udivmoddi4.o)
+ .ARM.extab.text.__udivmoddi4
+                0x00000000        0x0 /nix/store/3y7lyg1ykgxhlb9sa5iy0gb8hnshb302-gcc-arm-embedded-15.2.rel1/bin/../lib/gcc/arm-none-eabi/15.2.1/thumb/v7e-m/nofp/libgcc.a(_udivmoddi4.o)
+ .data          0x00000000        0x0 /nix/store/3y7lyg1ykgxhlb9sa5iy0gb8hnshb302-gcc-arm-embedded-15.2.rel1/bin/../lib/gcc/arm-none-eabi/15.2.1/thumb/v7e-m/nofp/libgcc.a(_dvmd_tls.o)
+ .bss           0x00000000        0x0 /nix/store/3y7lyg1ykgxhlb9sa5iy0gb8hnshb302-gcc-arm-embedded-15.2.rel1/bin/../lib/gcc/arm-none-eabi/15.2.1/thumb/v7e-m/nofp/libgcc.a(_dvmd_tls.o)
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+FLASH            0x08000000         0x00010000         xr
+RAM              0x20000000         0x00004000         xrw
+*default*        0x00000000         0xffffffff
+
+Linker script and memory map
+
+LOAD build/startup.o
+LOAD build/vectors.o
+LOAD build/main.o
+LOAD build/uart.o
+LOAD build/libhal.a
+LOAD /nix/store/3y7lyg1ykgxhlb9sa5iy0gb8hnshb302-gcc-arm-embedded-15.2.rel1/bin/../lib/gcc/arm-none-eabi/15.2.1/thumb/v7e-m/nofp/libgcc.a
+                0x20004000                        _estack = (ORIGIN (RAM) + LENGTH (RAM))
+                0x00000400                        _stack_size = 0x400
+
+.isr_vector     0x08000000       0xa0
+ *(.isr_vector)
+ .isr_vector    0x08000000       0xa0 build/vectors.o
+                0x08000000                vector_table
+
+.text           0x080000a0      0x528
+ *(.text .text.*)
+ .text.Reset_Handler
+                0x080000a0       0x40 build/startup.o
+                0x080000a0                Reset_Handler
+ .text.Default_Handler
+                0x080000e0        0x2 build/vectors.o
+                0x080000e0                HardFault_Handler
+                0x080000e0                NMI_Handler
+ *fill*         0x080000e2        0x2 
+ .text.SysTick_Handler
+                0x080000e4       0x10 build/main.o
+                0x080000e4                SysTick_Handler
+ .text.startup.main
+                0x080000f4       0x88 build/main.o
+                0x080000f4                main
+ .text.uart_init
+                0x0800017c       0x14 build/uart.o
+                0x0800017c                uart_init
+ .text.uart_puts
+                0x08000190       0x1c build/uart.o
+                0x08000190                uart_puts
+ .text.uart_put_hex
+                0x080001ac       0x2c build/uart.o
+                0x080001ac                uart_put_hex
+ .text.uart_read
+                0x080001d8       0x4c build/uart.o
+                0x080001d8                uart_read
+ .text.USART1_IRQHandler
+                0x08000224       0x24 build/uart.o
+                0x08000224                USART1_IRQHandler
+ .text.clock_init
+                0x08000248        0xc build/libhal.a(clock.o)
+                0x08000248                clock_init
+ .text.gpio_init
+                0x08000254       0x14 build/libhal.a(gpio.o)
+                0x08000254                gpio_init
+ .text.gpio_toggle
+                0x08000268       0x1c build/libhal.a(gpio.o)
+                0x08000268                gpio_toggle
+ .text          0x08000284       0x30 /nix/store/3y7lyg1ykgxhlb9sa5iy0gb8hnshb302-gcc-arm-embedded-15.2.rel1/bin/../lib/gcc/arm-none-eabi/15.2.1/thumb/v7e-m/nofp/libgcc.a(_aeabi_uldivmod.o)
+                0x08000284                __aeabi_uldivmod
+ .text.__udivmoddi4
+                0x080002b4      0x310 /nix/store/3y7lyg1ykgxhlb9sa5iy0gb8hnshb302-gcc-arm-embedded-15.2.rel1/bin/../lib/gcc/arm-none-eabi/15.2.1/thumb/v7e-m/nofp/libgcc.a(_udivmoddi4.o)
+                0x080002b4                __udivmoddi4
+ .text          0x080005c4        0x4 /nix/store/3y7lyg1ykgxhlb9sa5iy0gb8hnshb302-gcc-arm-embedded-15.2.rel1/bin/../lib/gcc/arm-none-eabi/15.2.1/thumb/v7e-m/nofp/libgcc.a(_dvmd_tls.o)
+                0x080005c4                __aeabi_ldiv0
+                0x080005c4                __aeabi_idiv0
+ *(.glue_7)
+ .glue_7        0x080005c8        0x0 linker stubs
+ *(.glue_7t)
+ .glue_7t       0x080005c8        0x0 linker stubs
+
+.vfp11_veneer   0x080005c8        0x0
+ .vfp11_veneer  0x080005c8        0x0 linker stubs
+
+.v4_bx          0x080005c8        0x0
+ .v4_bx         0x080005c8        0x0 linker stubs
+
+.iplt           0x080005c8        0x0
+ .iplt          0x080005c8        0x0 build/startup.o
+
+.rodata         0x080005c8       0xac
+                0x080005c8                        . = ALIGN (0x4)
+ *(.rodata .rodata.*)
+ .rodata.crc_table
+                0x080005c8       0x80 build/main.o
+                0x080005c8                crc_table
+ .rodata.banner
+                0x08000648       0x1b build/main.o
+ .rodata.digits.0
+                0x08000663       0x11 build/uart.o
+                0x08000674                        . = ALIGN (0x4)
+
+.ARM.exidx      0x08000674        0x8
+ *(.ARM.exidx* .gnu.linkonce.armexidx.*)
+ .ARM.exidx.text.__udivmoddi4
+                0x08000674        0x8 /nix/store/3y7lyg1ykgxhlb9sa5iy0gb8hnshb302-gcc-arm-embedded-15.2.rel1/bin/../lib/gcc/arm-none-eabi/15.2.1/thumb/v7e-m/nofp/libgcc.a(_udivmoddi4.o)
+
+.rel.dyn        0x0800067c        0x0
+ .rel.iplt      0x0800067c        0x0 build/startup.o
+
+.data           0x20000000        0x8 load address 0x0800067c
+                0x20000000                        . = ALIGN (0x4)
+                0x20000000                        _sdata = .
+ *(.data .data.*)
+ .data.boot_count
+                0x20000000        0x4 build/main.o
+                0x20000000                boot_count
+ .data.system_core_clock
+                0x20000004        0x4 build/libhal.a(clock.o)
+                0x20000004                system_core_clock
+                0x20000008                        . = ALIGN (0x4)
+                0x20000008                        _edata = .
+                0x0800067c                        _sidata = LOADADDR (.data)
+
+.igot.plt       0x20000008        0x0 load address 0x08000684
+ .igot.plt      0x20000008        0x0 build/startup.o
+
+.bss            0x20000008      0x19c load address 0x08000684
+                0x20000008                        . = ALIGN (0x4)
+                0x20000008                        _sbss = .
+ *(.bss .bss.* COMMON)
+ .bss.scratch   0x20000008      0x100 build/main.o
+ .bss.ticks     0x20000108        0x4 build/main.o
+                0x20000108                ticks
+ .bss.rx_tail   0x2000010c        0x4 build/uart.o
+ .bss.rx_head   0x20000110        0x4 build/uart.o
+ .bss.rx_buffer
+                0x20000114       0x80 build/uart.o
+ .bss.gpio_state
+                0x20000194       0x10 build/libhal.a(gpio.o)
+                0x200001a4                        . = ALIGN (0x4)
+                0x200001a4                        _ebss = .
+
+.stack          0x200001a4      0x404 load address 0x08000684
+                0x200001a8                        . = ALIGN (0x8)
+ *fill*         0x200001a4        0x4 
+                0x200005a8                        . = (. + _stack_size)
+ *fill*         0x200001a8      0x400 
+OUTPUT(v1.elf elf32-littlearm)
+LOAD linker stubs
+
+.ARM.attributes
+                0x00000000       0x2f
+ .ARM.attributes
+                0x00000000       0x21 build/startup.o
+ .ARM.attributes
+                0x00000021       0x2e build/vectors.o
+ .ARM.attributes
+                0x0000004f       0x2e build/main.o
+ .ARM.attributes
+                0x0000007d       0x2e build/uart.o
+ .ARM.attributes
+                0x000000ab       0x2e build/libhal.a(clock.o)
+ .ARM.attributes
+                0x000000d9       0x2e build/libhal.a(gpio.o)
+ .ARM.attributes
+                0x00000107       0x1e /nix/store/3y7lyg1ykgxhlb9sa5iy0gb8hnshb302-gcc-arm-embedded-15.2.rel1/bin/../lib/gcc/arm-none-eabi/15.2.1/thumb/v7e-m/nofp/libgcc.a(_aeabi_uldivmod.o)
+ .ARM.attributes
+                0x00000125       0x2e /nix/store/3y7lyg1ykgxhlb9sa5iy0gb8hnshb302-gcc-arm-embedded-15.2.rel1/bin/../lib/gcc/arm-none-eabi/15.2.1/thumb/v7e-m/nofp/libgcc.a(_udivmoddi4.o)
+ .ARM.attributes
+                0x00000153       0x1e /nix/store/3y7lyg1ykgxhlb9sa5iy0gb8hnshb302-gcc-arm-embedded-15.2.rel1/bin/../lib/gcc/arm-none-eabi/15.2.1/thumb/v7e-m/nofp/libgcc.a(_dvmd_tls.o)
+
+.comment        0x00000000       0x45
+ .comment       0x00000000       0x45 build/vectors.o
+                                 0x46 (size before relaxing)
+ .comment       0x00000045        0x0 build/main.o
+                                 0x46 (size before relaxing)
+ .comment       0x00000045        0x0 build/uart.o
+                                 0x46 (size before relaxing)
+ .comment       0x00000045        0x0 build/libhal.a(clock.o)
+                                 0x46 (size before relaxing)
+ .comment       0x00000045        0x0 build/libhal.a(gpio.o)
+                                 0x46 (size before relaxing)
+
+.debug_info     0x00000000      0x829
+ .debug_info    0x00000000       0xdf build/vectors.o
+ .debug_info    0x000000df      0x36b build/main.o
+ .debug_info    0x0000044a      0x239 build/uart.o
+ .debug_info    0x00000683       0xae build/libhal.a(clock.o)
+ .debug_info    0x00000731       0xf8 build/libhal.a(gpio.o)
+
+.debug_abbrev   0x00000000      0x5b6
+ .debug_abbrev  0x00000000       0xb8 build/vectors.o
+ .debug_abbrev  0x000000b8      0x217 build/main.o
+ .debug_abbrev  0x000002cf      0x1a4 build/uart.o
+ .debug_abbrev  0x00000473       0x7c build/libhal.a(clock.o)
+ .debug_abbrev  0x000004ef       0xc7 build/libhal.a(gpio.o)
+
+.debug_aranges  0x00000000       0xd8
+ .debug_aranges
+                0x00000000       0x20 build/vectors.o
+ .debug_aranges
+                0x00000020       0x30 build/main.o
+ .debug_aranges
+                0x00000050       0x40 build/uart.o
+ .debug_aranges
+                0x00000090       0x20 build/libhal.a(clock.o)
+ .debug_aranges
+                0x000000b0       0x28 build/libhal.a(gpio.o)
+
+.debug_rnglists
+                0x00000000       0xe1
+ .debug_rnglists
+                0x00000000       0x13 build/vectors.o
+ .debug_rnglists
+                0x00000013       0x50 build/main.o
+ .debug_rnglists
+                0x00000063       0x52 build/uart.o
+ .debug_rnglists
+                0x000000b5       0x13 build/libhal.a(clock.o)
+ .debug_rnglists
+                0x000000c8       0x19 build/libhal.a(gpio.o)
+
+.debug_line     0x00000000      0x63c
+ .debug_line    0x00000000       0xbb build/vectors.o
+ .debug_line    0x000000bb      0x188 build/main.o
+ .debug_line    0x00000243      0x216 build/uart.o
+ .debug_line    0x00000459       0xc1 build/libhal.a(clock.o)
+ .debug_line    0x0000051a      0x122 build/libhal.a(gpio.o)
+
+.debug_str      0x00000000      0x2a0
+ .debug_str     0x00000000      0x2a0 build/vectors.o
+                                0x197 (size before relaxing)
+ .debug_str     0x000002a0        0x0 build/main.o
+                                0x21a (size before relaxing)
+ .debug_str     0x000002a0        0x0 build/uart.o
+                                0x1c3 (size before relaxing)
+ .debug_str     0x000002a0        0x0 build/libhal.a(clock.o)
+                                0x161 (size before relaxing)
+ .debug_str     0x000002a0        0x0 build/libhal.a(gpio.o)
+                                0x164 (size before relaxing)
+
+.debug_frame    0x00000000      0x198
+ .debug_frame   0x00000000       0x20 build/vectors.o
+ .debug_frame   0x00000020       0x4c build/main.o
+ .debug_frame   0x0000006c       0x7c build/uart.o
+ .debug_frame   0x000000e8       0x20 build/libhal.a(clock.o)
+ .debug_frame   0x00000108       0x30 build/libhal.a(gpio.o)
+ .debug_frame   0x00000138       0x2c /nix/store/3y7lyg1ykgxhlb9sa5iy0gb8hnshb302-gcc-arm-embedded-15.2.rel1/bin/../lib/gcc/arm-none-eabi/15.2.1/thumb/v7e-m/nofp/libgcc.a(_aeabi_uldivmod.o)
+ .debug_frame   0x00000164       0x34 /nix/store/3y7lyg1ykgxhlb9sa5iy0gb8hnshb302-gcc-arm-embedded-15.2.rel1/bin/../lib/gcc/arm-none-eabi/15.2.1/thumb/v7e-m/nofp/libgcc.a(_udivmoddi4.o)
+
+.debug_loclists
+                0x00000000      0x1ec
+ .debug_loclists
+                0x00000000      0x103 build/main.o
+ .debug_loclists
+                0x00000103       0xa2 build/uart.o
+ .debug_loclists
+                0x000001a5       0x47 build/libhal.a(gpio.o)
+
+.debug_line_str
+                0x00000000       0xcb
+ .debug_line_str
+                0x00000000       0xcb /nix/store/3y7lyg1ykgxhlb9sa5iy0gb8hnshb302-gcc-arm-embedded-15.2.rel1/bin/../lib/gcc/arm-none-eabi/15.2.1/thumb/v7e-m/nofp/libgcc.a(_aeabi_uldivmod.o)
+                                 0xbf (size before relaxing)
+ .debug_line_str
+                0x000000cb        0x0 /nix/store/3y7lyg1ykgxhlb9sa5iy0gb8hnshb302-gcc-arm-embedded-15.2.rel1/bin/../lib/gcc/arm-none-eabi/15.2.1/thumb/v7e-m/nofp/libgcc.a(_dvmd_tls.o)
+                                 0xc3 (size before relaxing)

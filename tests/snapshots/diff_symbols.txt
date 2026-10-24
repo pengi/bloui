@@ -1,0 +1,16 @@
+Pipeline (load):
+   1. open v2.elf                      0 → 1700          +1700  ok
+      attached ./diff/v2.map
+   2. compare with v1.elf           1700 → 1700             +0  ok
+      attached ./diff/v1.map
+   3. keep load                     1700 → 1700             +0  ok
+   4. split by symbol               1700 → 1700             +0  ok
+
+     BASE      LOAD     DELTA  CHANGE  symbol
+     1668      1700       +32   +1.9%  TOTAL
+        0        44       +44     new  ├─ report (new)
+       44         0       -44 -100.0%  ├─ uart_put_hex (removed)
+        0        27       +27     new  ├─ [.rodata] (new)
+       27        45       +18  +66.7%  ├─ banner
+       17         0       -17 -100.0%  ├─ digits.0 (removed)
+      136       140        +4   +2.9%  └─ main

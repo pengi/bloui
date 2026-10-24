@@ -13,6 +13,7 @@ the stages given as options, **in command-line order**:
 | Option | Stage it adds |
 |--------|---------------|
 | `-i, --input FILE` | `open-file` |
+| `--base FILE` | `open-file role=base`: a build to compare with (see [Diffs](#diffs)) |
 | `-s, --split DIM[:K=V,..]` | `split` by a dimension, e.g. `-s section`, `-s symbol:fallback=none` |
 | `--include DIM=REGEX` | `filter-label`, keep matching bytes |
 | `--exclude DIM=REGEX` | `filter-label`, remove matching bytes |
@@ -28,6 +29,8 @@ Output options:
 | Option | Meaning |
 |--------|---------|
 | `-m, --sort METRIC` | sort by `file`, `memory` or `load`; the `%` column uses it too. Default: the project's or preset's `[view]`, else `memory` |
+| `--order size\|delta\|name` | order of children: by size (default), by change from the base (biggest either way first), or by name |
+| `--changed` | with a base: only what changed |
 | `-d, --depth N` | show at most N levels |
 | `-n, --limit N` | show at most N children per node, the rest as `[k more]` (default 20, 0 = all) |
 | `--bytes` | exact byte counts instead of `1.23Ki` |
@@ -80,6 +83,30 @@ bloui-cli -i fw.elf -s 'rules:dimension=symbol-path,dimension.depth=2,rules=^hw/
 # Rename memory regions; free space added later gets the new names too.
 bloui-cli -i fw.elf -s memory-region -S 'relabel rules=^FLASH$=>flash rules=^RAM$=>ram' --free
 ```
+
+## Diffs
+
+`--base FILE` adds a build to compare with. The tree shows the current
+build (`-i`); the base only gives the changes. Labels are matched by
+name, so the usual splits work (section, symbol, object file, …), but
+not `file`, which keeps the two builds apart.
+
+```sh
+bloui-cli -i v2.elf --base v1.elf -k load -m load -s symbol --order delta --changed
+```
+
+```
+     BASE      LOAD     DELTA  CHANGE  symbol
+    1.63Ki    1.66Ki       +32   +1.9%  TOTAL
+        0        44       +44     new  ├─ report (new)
+       44         0       -44 -100.0%  ├─ uart_put_hex (removed)
+       ...
+```
+
+The columns are the base size, the current size, the change and the
+change in percent of the base, all for the metric (`-m`). Removed things
+stay in the tree with size 0. CSV output gets `base_file`, `base_memory`
+and `base_load` columns. `--stats` counts the current build only.
 
 ## Examples
 
