@@ -83,7 +83,7 @@ fn treemap_view_caches_and_hits() {
         _ => panic!(),
     };
     // Hover only changes outlines; the image is reused.
-    let hit = tm.node_at(10.0, 10.0).unwrap();
+    let hit = tm.node_at(&v, 10.0, 10.0).unwrap();
     v.set_hover(Some(hit));
     let s2 = tm.scene(&v, 400, 300);
     match &s2.prims[0].1 {
@@ -101,4 +101,25 @@ fn treemap_view_caches_and_hits() {
     let root_tile = tm.treemap().unwrap().tiles[0];
     assert_eq!(root_tile.node, node(&t, &["RAM"]));
     assert!(tm.scene(&v, 0, 10).prims.is_empty());
+}
+
+#[test]
+fn no_hits_from_a_stale_layout() {
+    // A smaller tree replaces the painted one; input arrives before the
+    // next paint. Ids from the old layout must not reach the new tree.
+    let big = fw(true);
+    let mut v = ViewState::new(big.clone());
+    let mut tm = TreemapView::new();
+    tm.scene(&v, 400, 300);
+    assert!(tm.node_at(&v, 399.0, 299.0).is_some());
+    let small = tree(
+        vec![open(HOST), split("segment")],
+        bloui::model::Metric::File,
+    );
+    v.set_tree(Arc::new(small));
+    assert_eq!(tm.node_at(&v, 399.0, 299.0), None);
+    // After painting, hits work again.
+    tm.scene(&v, 400, 300);
+    let hit = tm.node_at(&v, 10.0, 10.0).unwrap();
+    assert!((hit.0 as usize) < v.tree().nodes.len());
 }

@@ -132,9 +132,16 @@ impl TreemapView {
         out
     }
 
-    /// The node under a point, from the last scene's layout.
-    pub fn node_at(&self, x: f64, y: f64) -> Option<NodeId> {
-        self.cache.as_ref()?.1.tile_at(x, y).map(|t| t.node)
+    /// The node under a point, from the last scene's layout. `None` if that
+    /// layout is of another tree or zoom than `state`'s (input can arrive
+    /// after a new tree is set but before it is painted), so a node id is
+    /// never used with the wrong tree.
+    pub fn node_at(&self, state: &ViewState, x: f64, y: f64) -> Option<NodeId> {
+        let (key, map, _) = self.cache.as_ref()?;
+        if !Arc::ptr_eq(&key.tree, state.tree()) || key.root != state.zoom_root() {
+            return None;
+        }
+        map.tile_at(x, y).map(|t| t.node)
     }
 
     /// The last layout.

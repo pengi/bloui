@@ -126,7 +126,12 @@ impl Treemap {
 
     fn node_at(&self, x: f64, y: f64) -> Option<bloui::engine::NodeId> {
         let s = self.imp().scale.get();
-        self.imp().map.borrow().node_at(x * s, y * s)
+        let view = self.view();
+        let view = view.borrow();
+        self.imp()
+            .map
+            .borrow()
+            .node_at(view.as_ref()?, x * s, y * s)
     }
 
     fn setup_input(&self) {
