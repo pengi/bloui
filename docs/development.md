@@ -21,6 +21,22 @@ cargo test
 scripts/check-licenses.py            # dependencies must be GPL-2.0-only compatible
 ```
 
+GitHub Actions runs these checks, plus `cargo test --no-default-features`,
+on every push and pull request (`.github/workflows/ci.yml`).
+
+## Releasing
+
+Bump `version` in `Cargo.toml`, commit, then tag and push:
+
+```sh
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+`.github/workflows/release.yml` checks that the tag matches the version,
+runs the tests and publishes to crates.io. It needs a crates.io API token
+in the repository secret `CARGO_REGISTRY_TOKEN`.
+
 ## Licensing
 
 Bloui is GPL-2.0-only. Every dependency must be compatible with that:
