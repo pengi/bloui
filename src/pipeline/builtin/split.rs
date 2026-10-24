@@ -49,8 +49,8 @@ struct SplitStage {
 }
 
 impl Stage for SplitStage {
-    fn check(&self, ctx: &PipelineCtx, input: &PipelineState) -> Availability {
-        self.dim.availability(ctx, input)
+    fn check(&self, _ctx: &PipelineCtx, input: &PipelineState) -> Availability {
+        self.dim.availability(input)
     }
 
     fn apply(&self, ctx: &mut PipelineCtx, mut state: PipelineState) -> Result<PipelineState> {

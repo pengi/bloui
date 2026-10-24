@@ -3,6 +3,7 @@ use super::symbol::{NameStyle, demangle_params, fallback_param, label_symbols, s
 use crate::dimension::{Dimension, DimensionFactory, Labeling};
 use crate::model::{Binary, Interner, Label};
 use crate::param::{ParamSpec, ParamValues};
+use crate::registry::Registry;
 use crate::symname;
 use crate::{Error, Result};
 use regex::Regex;
@@ -55,7 +56,7 @@ impl DimensionFactory for SymbolPathDim {
         params.push(fallback_param());
         params
     }
-    fn create(&self, params: &ParamValues) -> Result<Box<dyn Dimension>> {
+    fn create(&self, params: &ParamValues, _registry: &Registry) -> Result<Box<dyn Dimension>> {
         let split = match params.text("split") {
             "chars" => Split::Chars(params.text("chars").chars().collect()),
             "regex" => Split::Regex(

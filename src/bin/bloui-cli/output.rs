@@ -147,7 +147,18 @@ pub fn stats(
     o: &Options,
 ) {
     let _ = writeln!(out, "Pipeline ({}):", o.sort.name());
-    for (i, (stage, r)) in pipeline.stages.iter().zip(reports).enumerate() {
+    let summaries: Vec<String> = pipeline
+        .stages
+        .iter()
+        .map(|s| bloui::pipeline::summary(s, registry))
+        .collect();
+    let width = summaries
+        .iter()
+        .map(|s| s.chars().count())
+        .max()
+        .unwrap_or(0)
+        .max(24);
+    for (i, (summary, r)) in summaries.iter().zip(reports).enumerate() {
         let status = match &r.status {
             StageStatus::Ok => "ok".to_owned(),
             StageStatus::Disabled => "disabled".to_owned(),
@@ -162,9 +173,8 @@ pub fn stats(
         };
         let _ = writeln!(
             out,
-            "  {:>2}. {:<24} {:>9} → {:<9} {:>9}  {status}",
+            "  {:>2}. {summary:<width$} {:>9} → {:<9} {:>9}  {status}",
             i + 1,
-            bloui::pipeline::summary(stage, registry),
             o.size(input),
             o.size(output),
             delta
@@ -203,7 +213,10 @@ fn describe_param(p: &ParamSpec) -> String {
         ParamKind::TextList => "list".to_owned(),
         ParamKind::Dimension => "dimension".to_owned(),
         ParamKind::Level => "level".to_owned(),
-        ParamKind::Table(_) => "table".to_owned(),
+        ParamKind::Table { columns, separator } => {
+            let row: Vec<String> = columns.iter().map(|c| c.key.to_uppercase()).collect();
+            format!("table of {}", row.join(separator))
+        }
     };
     let default = match &p.default {
         ParamValue::Bool(b) => b.to_string(),

@@ -3,6 +3,7 @@ use crate::Result;
 use crate::dimension::{Dimension, DimensionFactory, Labeling};
 use crate::model::{Availability, Binary, InputSection, Interner, Label, LinkMap, Overlap};
 use crate::param::{ParamSpec, ParamValues};
+use crate::registry::Registry;
 use std::path::Path;
 
 fn needs_map(bin: &Binary) -> Availability {
@@ -72,10 +73,7 @@ impl DimensionFactory for ObjectFileDim {
             ),
         ]
     }
-    fn availability(&self, bin: &Binary) -> Availability {
-        needs_map(bin)
-    }
-    fn create(&self, params: &ParamValues) -> Result<Box<dyn Dimension>> {
+    fn create(&self, params: &ParamValues, _registry: &Registry) -> Result<Box<dyn Dimension>> {
         Ok(Box::new(Objects {
             archives: params.text("archives").to_owned(),
             short: params.text("paths") == "short",
@@ -102,6 +100,9 @@ impl Objects {
 }
 
 impl Dimension for Objects {
+    fn availability(&self, bin: &Binary) -> Availability {
+        needs_map(bin)
+    }
     fn label(&self, bin: &Binary, interner: &mut Interner) -> Result<Labeling> {
         Ok(label_inputs(
             bin,
@@ -139,13 +140,13 @@ impl DimensionFactory for InputSectionDim {
     fn description(&self) -> &'static str {
         "Input section from the linker map, like .text.uart_init; padding is [fill]"
     }
-    fn availability(&self, bin: &Binary) -> Availability {
-        needs_map(bin)
-    }
     super::simple_create!();
 }
 
 impl Dimension for InputSectionDim {
+    fn availability(&self, bin: &Binary) -> Availability {
+        needs_map(bin)
+    }
     fn label(&self, bin: &Binary, interner: &mut Interner) -> Result<Labeling> {
         Ok(label_inputs(
             bin,

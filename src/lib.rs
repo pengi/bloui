@@ -15,6 +15,7 @@ pub mod project;
 pub mod reader;
 pub mod registry;
 pub mod render;
+pub mod rules;
 pub mod symname;
 pub mod view;
 

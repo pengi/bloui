@@ -4,7 +4,7 @@
 use crate::dimension::{Dimension, DimensionFactory};
 use crate::model::Availability;
 use crate::param::DimRef;
-use crate::pipeline::{PipelineCtx, PipelineState, Stage, StageConfig, StageFactory};
+use crate::pipeline::{PipelineState, Stage, StageConfig, StageFactory};
 use crate::reader::Reader;
 use crate::{Error, Result};
 
@@ -27,13 +27,10 @@ pub struct DimHandle {
 
 impl DimHandle {
     /// Available when it is for at least one input binary.
-    pub fn availability(&self, ctx: &PipelineCtx, input: &PipelineState) -> Availability {
-        let Some(factory) = ctx.registry.dimension(&self.id) else {
-            return Availability::Unavailable(format!("unknown dimension '{}'", self.id));
-        };
+    pub fn availability(&self, input: &PipelineState) -> Availability {
         let mut why = None;
         for bin in &input.binaries {
-            match factory.availability(bin) {
+            match self.dim.availability(bin) {
                 Availability::Available => return Availability::Available,
                 Availability::Unavailable(w) => why = Some(w),
             }
@@ -101,7 +98,7 @@ impl Registry {
             },
             name: factory.name(),
             key: format!("{}{}", r.id, params.canonical()),
-            dim: factory.create(&params)?,
+            dim: factory.create(&params, self)?,
         })
     }
 

@@ -6,6 +6,7 @@ mod filter_label;
 mod filter_space;
 mod free_space;
 mod open_file;
+mod relabel;
 mod split;
 
 use super::StageFactory;
@@ -20,5 +21,6 @@ pub fn all() -> Vec<Box<dyn StageFactory>> {
         Box::new(attach::LinkerMap),
         Box::new(attach::MemoryRegions),
         Box::new(free_space::FreeSpace),
+        Box::new(relabel::Relabel),
     ]
 }

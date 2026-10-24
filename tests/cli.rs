@@ -276,3 +276,42 @@ fn cxx_symbol_paths() {
         ],
     );
 }
+
+#[test]
+fn cxx_rules() {
+    // Nested dimension parameters and repeated keys in -s.
+    cli(
+        "cxx_rules",
+        &[
+            "-i",
+            "cxx/fw.elf",
+            "-k",
+            "load",
+            "-m",
+            "load",
+            "--bytes",
+            "-s",
+            "rules:dimension=symbol-path,dimension.depth=2,rules=^hw/uart=>drivers/uart,\
+             rules=^hw/RingBuffer=>containers,rules=^(app)=>$1,unmatched=other",
+            "--stats",
+        ],
+    );
+}
+
+#[test]
+fn fw_relabel() {
+    cli(
+        "fw_relabel",
+        &[
+            "-i",
+            "cortexm/fw.elf",
+            "-s",
+            "memory-region",
+            "-S",
+            "relabel rules=^FLASH$=>flash rules=^RAM$=>ram",
+            "--free",
+            "-d",
+            "1",
+        ],
+    );
+}

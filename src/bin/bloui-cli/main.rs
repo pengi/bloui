@@ -5,7 +5,7 @@ mod output;
 
 use bloui::engine::{AnalysisTree, ColorLabels, Runner, StageStatus};
 use bloui::model::Metric;
-use bloui::param::{ParamKind, ParamValue, ParamValues};
+use bloui::param::{ParamKind, ParamSpec, ParamValue, ParamValues};
 use bloui::pipeline::StageConfig;
 use bloui::project::{Project, ViewSettings, preset};
 use bloui::registry::Registry;
@@ -319,7 +319,7 @@ fn inline_stages(
     add("split", &cli.split, &mut |v| {
         Ok(StageConfig::new(
             "split",
-            ParamValues::new().with("dimension", dim_spec(v)),
+            ParamValues::new().with("dimension", dim_spec(v, registry)),
         ))
     })?;
     for (key, mode) in [("include", "include"), ("exclude", "exclude")] {
@@ -335,7 +335,7 @@ fn inline_stages(
             Ok(StageConfig::new(
                 "filter-label",
                 ParamValues::new()
-                    .with("dimension", dim_spec(dim))
+                    .with("dimension", dim_spec(dim, registry))
                     .with("mode", ParamValue::Text(mode.into()))
                     .with("patterns", ParamValue::List(vec![re.into()])),
             ))
@@ -376,13 +376,18 @@ fn inline_stages(
     Ok((stages.into_iter().map(|(_, s)| s).collect(), view))
 }
 
-/// `symbol:fallback=none,x=y` → a dimension value.
-fn dim_spec(text: &str) -> ParamValue {
+/// `symbol:fallback=none,x=y` → a dimension value. Keys work as in
+/// [`set_param`].
+fn dim_spec(text: &str, registry: &Registry) -> ParamValue {
     let (id, rest) = text.split_once(':').unwrap_or((text, ""));
+    let specs = registry
+        .dimension(id)
+        .map(|f| f.params())
+        .unwrap_or_default();
     let mut map = ParamValues::new().with("id", ParamValue::Text(id.into()));
     for kv in rest.split(',').filter(|s| !s.is_empty()) {
         let (k, v) = kv.split_once('=').unwrap_or((kv, "true"));
-        map.set(k, ParamValue::Text(v.into()));
+        set_param(&mut map, &specs, registry, k, v);
     }
     ParamValue::Map(map)
 }
@@ -400,39 +405,65 @@ fn generic_stage(text: &str, registry: &Registry) -> Result<StageConfig, String>
         let (key, value) = word
             .split_once('=')
             .ok_or(format!("expected key=value, got '{word}'"))?;
-        let value = ParamValue::Text(value.into());
-        if let Some((base, sub)) = key.split_once('.') {
-            let mut map = match params.get(base) {
-                Some(ParamValue::Map(m)) => m.clone(),
-                Some(ParamValue::Text(id)) => {
-                    ParamValues::new().with("id", ParamValue::Text(id.clone()))
-                }
-                _ => ParamValues::new(),
-            };
-            map.set(sub, value);
-            params.set(base, ParamValue::Map(map));
-            continue;
-        }
-        let is_dim = specs
-            .iter()
-            .any(|s| s.key == key && s.kind == ParamKind::Dimension);
-        let new = match (params.get(key), value) {
-            (Some(ParamValue::Map(m)), ParamValue::Text(id)) if is_dim => {
-                ParamValue::Map(m.clone().with("id", ParamValue::Text(id)))
-            }
-            (Some(ParamValue::Text(old)), ParamValue::Text(v)) => {
-                ParamValue::List(vec![old.clone(), v])
-            }
-            (Some(ParamValue::List(old)), ParamValue::Text(v)) => {
-                let mut l = old.clone();
-                l.push(v);
-                ParamValue::List(l)
-            }
-            (_, v) => v,
-        };
-        params.set(key, new);
+        set_param(&mut params, &specs, registry, key, value);
     }
     Ok(StageConfig::new(id, params))
+}
+
+/// Sets one `key=value` from the command line. `dim.key=value` sets a
+/// parameter of the dimension parameter `dim` (nesting works for
+/// dimensions of dimensions), and a repeated key makes a list.
+fn set_param(
+    params: &mut ParamValues,
+    specs: &[ParamSpec],
+    registry: &Registry,
+    key: &str,
+    value: &str,
+) {
+    if let Some((base, sub)) = key.split_once('.') {
+        let mut map = match params.get(base) {
+            Some(ParamValue::Map(m)) => m.clone(),
+            Some(ParamValue::Text(id)) => {
+                ParamValues::new().with("id", ParamValue::Text(id.clone()))
+            }
+            _ => match specs.iter().find(|s| s.key == base).map(|s| &s.default) {
+                Some(ParamValue::Map(m)) => m.clone(),
+                _ => ParamValues::new(),
+            },
+        };
+        let sub_specs = match map.get("id") {
+            Some(ParamValue::Text(id)) => registry.dimension(id).map(|f| f.params()),
+            _ => None,
+        };
+        set_param(
+            &mut map,
+            &sub_specs.unwrap_or_default(),
+            registry,
+            sub,
+            value,
+        );
+        params.set(base, ParamValue::Map(map));
+        return;
+    }
+    let value = ParamValue::Text(value.into());
+    let is_dim = specs
+        .iter()
+        .any(|s| s.key == key && s.kind == ParamKind::Dimension);
+    let new = match (params.get(key), value) {
+        (Some(ParamValue::Map(m)), ParamValue::Text(id)) if is_dim => {
+            ParamValue::Map(m.clone().with("id", ParamValue::Text(id)))
+        }
+        (Some(ParamValue::Text(old)), ParamValue::Text(v)) => {
+            ParamValue::List(vec![old.clone(), v])
+        }
+        (Some(ParamValue::List(old)), ParamValue::Text(v)) => {
+            let mut l = old.clone();
+            l.push(v);
+            ParamValue::List(l)
+        }
+        (_, v) => v,
+    };
+    params.set(key, new);
 }
 
 /// A level by index or name, or else a dimension.
@@ -448,7 +479,9 @@ fn color_by(
     if let Some(i) = tree.levels.iter().position(|l| l.name == text) {
         return Ok(ColorBy::Level(i as u32));
     }
-    let dim = ParamValues::new().with("d", dim_spec(text)).dimension("d");
+    let dim = ParamValues::new()
+        .with("d", dim_spec(text, &runner.ctx.registry.clone()))
+        .dimension("d");
     let labels = ColorLabels::compute(&mut runner.ctx, state, tree, &dim)
         .map_err(|e| format!("--color-by: {e}"))?;
     Ok(ColorBy::Labels(Arc::new(labels)))

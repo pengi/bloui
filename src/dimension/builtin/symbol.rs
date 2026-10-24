@@ -3,6 +3,7 @@ use crate::Result;
 use crate::dimension::{Dimension, DimensionFactory, Labeling};
 use crate::model::{Binary, Interner, Label, Overlap, Symbol, SymbolKind};
 use crate::param::{ParamSpec, ParamValues};
+use crate::registry::Registry;
 use crate::symname;
 
 pub struct SymbolDim;
@@ -22,7 +23,7 @@ impl DimensionFactory for SymbolDim {
         params.push(fallback_param());
         params
     }
-    fn create(&self, params: &ParamValues) -> Result<Box<dyn Dimension>> {
+    fn create(&self, params: &ParamValues, _registry: &Registry) -> Result<Box<dyn Dimension>> {
         Ok(Box::new(Symbols {
             names: NameStyle::from_params(params),
             section_fallback: section_fallback(params),

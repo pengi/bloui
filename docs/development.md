@@ -44,6 +44,7 @@ src/
   reader/      Reader trait; elf/ is the only format-specific code
   linkmap/     linker map parsers (GNU ld) and the map/binary check
   symname/     symbol names: demangling (Rust, C++), splitting into paths
+  rules/       regex relabeling rules (rules dimension, relabel stage)
   dimension/   Dimension trait; builtin/ has file, segment, section,
                category, symbol, memory-region, object-file, input-section
   pipeline/    Stage trait, PipelineCtx (interner and caches), configs;
@@ -67,7 +68,7 @@ src/
   bin/bloui-cli/   text frontend
 ```
 
-Dependencies go one way: `model`, `param`, `symname` → `reader`, `dimension` →
+Dependencies go one way: `model`, `param`, `symname`, `rules` → `reader`, `dimension` →
 `engine`, `pipeline` → `registry`, `project` → binaries.
 
 ### Adding a dimension or stage
@@ -81,6 +82,13 @@ text, and use `ParamSpec::visible_when(key, value)` for a parameter that
 only matters for some value of another. A stage should also implement
 `StageFactory::summary`, the one line shown in the pipeline list and in
 `bloui-cli --stats`.
+
+`DimensionFactory::create` gets the registry, so a dimension can be built
+on another one (`rules` takes a `ParamSpec::dimension` parameter and
+creates it with `registry.create_dimension`). A dimension that needs
+something the binary may not have (a linker map) says so in
+`Dimension::availability`; a split or filter by it is then skipped.
+Symbol-based dimensions use `label_symbols` in `builtin/symbol.rs`.
 
 A dimension returns a `Labeling`: label entries in any address space, an
 overlap policy, and a fallback label. Use tiers for fallbacks that should

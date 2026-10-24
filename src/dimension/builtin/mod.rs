@@ -5,6 +5,7 @@ mod category;
 mod file;
 mod object_file;
 mod region;
+mod rules;
 mod section;
 mod segment;
 mod symbol;
@@ -26,6 +27,7 @@ pub fn all() -> Vec<Box<dyn DimensionFactory>> {
         Box::new(region::RegionDim),
         Box::new(object_file::ObjectFileDim),
         Box::new(object_file::InputSectionDim),
+        Box::new(rules::RulesDim),
     ]
 }
 
@@ -35,6 +37,7 @@ macro_rules! simple_create {
         fn create(
             &self,
             _params: &crate::param::ParamValues,
+            _registry: &crate::registry::Registry,
         ) -> crate::Result<Box<dyn crate::dimension::Dimension>> {
             Ok(Box::new(Self))
         }

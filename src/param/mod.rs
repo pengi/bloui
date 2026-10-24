@@ -35,8 +35,12 @@ pub enum ParamKind {
     Dimension,
     /// An existing tree level, by name or index.
     Level,
-    /// Rows of values, e.g. memory regions.
-    Table(Vec<ParamSpec>),
+    /// Rows of values, e.g. memory regions. As text (on a command line),
+    /// a row is its columns joined by `separator`: `FLASH:0x08000000:64K`.
+    Table {
+        columns: Vec<ParamSpec>,
+        separator: &'static str,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -167,9 +171,20 @@ impl ParamSpec {
         Self::new(
             key,
             label,
-            ParamKind::Table(columns),
+            ParamKind::Table {
+                columns,
+                separator: ":",
+            },
             ParamValue::Table(Vec::new()),
         )
+    }
+
+    /// The separator of a table's columns in a text row (`:` by default).
+    pub fn row_separator(mut self, sep: &'static str) -> Self {
+        if let ParamKind::Table { separator, .. } = &mut self.kind {
+            *separator = sep;
+        }
+        self
     }
 
     pub fn size(key: &'static str, label: &'static str, default: u64) -> Self {
@@ -210,6 +225,35 @@ impl DimRef {
         DimRef {
             id: id.into(),
             params: ParamValues::default(),
+        }
+    }
+
+    /// As the value of a [`ParamKind::Dimension`] parameter.
+    pub fn to_value(&self) -> ParamValue {
+        ParamValue::Map(
+            self.params
+                .clone()
+                .with("id", ParamValue::Text(self.id.clone())),
+        )
+    }
+}
+
+impl LevelRef {
+    /// The level's index in `levels`, if there is such a level.
+    pub fn find(&self, levels: &[crate::model::LevelInfo]) -> Option<usize> {
+        match self {
+            LevelRef::Index(i) => (*i < levels.len()).then_some(*i),
+            LevelRef::Name(n) => levels.iter().position(|l| l.name == *n),
+            LevelRef::Last => levels.len().checked_sub(1),
+        }
+    }
+
+    /// For stage summaries: `level 2`, `section`, `last level`.
+    pub fn summary(&self) -> String {
+        match self {
+            LevelRef::Index(i) => format!("level {i}"),
+            LevelRef::Name(n) => n.clone(),
+            LevelRef::Last => "last level".into(),
         }
     }
 }
@@ -416,16 +460,17 @@ fn coerce(spec: &ParamSpec, v: &ParamValue) -> Result<ParamValue> {
             }
             Ok(v.clone())
         }
-        (ParamKind::Table(_), V::List(l)) if l.is_empty() => Ok(V::Table(Vec::new())),
-        // Rows as text, columns separated by ':', as typed on a command
-        // line: `FLASH:0x08000000:64K`.
-        (ParamKind::Table(cols), V::Text(t)) => Ok(V::Table(vec![text_row(spec.key, cols, t)?])),
-        (ParamKind::Table(cols), V::List(rows)) => rows
+        (ParamKind::Table { .. }, V::List(l)) if l.is_empty() => Ok(V::Table(Vec::new())),
+        // Rows as text, as typed on a command line.
+        (ParamKind::Table { columns, separator }, V::Text(t)) => {
+            Ok(V::Table(vec![text_row(spec.key, columns, separator, t)?]))
+        }
+        (ParamKind::Table { columns, separator }, V::List(rows)) => rows
             .iter()
-            .map(|t| text_row(spec.key, cols, t))
+            .map(|t| text_row(spec.key, columns, separator, t))
             .collect::<Result<Vec<_>>>()
             .map(V::Table),
-        (ParamKind::Table(cols), V::Table(rows)) => rows
+        (ParamKind::Table { columns: cols, .. }, V::Table(rows)) => rows
             .iter()
             .map(|r| r.resolve(cols))
             .collect::<Result<Vec<_>>>()
@@ -434,12 +479,12 @@ fn coerce(spec: &ParamSpec, v: &ParamValue) -> Result<ParamValue> {
     }
 }
 
-fn text_row(key: &str, cols: &[ParamSpec], text: &str) -> Result<ParamValues> {
-    let parts: Vec<&str> = text.split(':').collect();
+fn text_row(key: &str, cols: &[ParamSpec], sep: &str, text: &str) -> Result<ParamValues> {
+    let parts: Vec<&str> = text.split(sep).collect();
     if parts.len() > cols.len() {
         return Err(Error::param(
             key,
-            format!("too many ':'-separated values in '{text}'"),
+            format!("too many '{sep}'-separated values in '{text}'"),
         ));
     }
     let mut row = ParamValues::new();
@@ -458,7 +503,7 @@ fn kind_name(kind: &ParamKind) -> &'static str {
         ParamKind::TextList => "a list of text",
         ParamKind::Dimension => "a dimension",
         ParamKind::Level => "a level name or index",
-        ParamKind::Table(_) => "a table",
+        ParamKind::Table { .. } => "a table",
     }
 }
 

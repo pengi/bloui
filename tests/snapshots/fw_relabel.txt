@@ -1,0 +1,5 @@
+     FILE    MEMORY      LOAD      %M  memory region
+   18.5Ki    80.0Ki    1.63Ki  100.0%  TOTAL
+   1.63Ki    64.0Ki    1.63Ki   80.0%  ├─ flash
+        0    16.0Ki         0   20.0%  ├─ ram
+   16.9Ki         0         0    0.0%  └─ [no region]

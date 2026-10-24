@@ -255,6 +255,16 @@ fn stage_summaries() {
         "regions FLASH"
     );
     assert_eq!(sum(&stage("free-space", &[])), "free space");
+    assert_eq!(
+        sum(&stage(
+            "relabel",
+            &[(
+                "rules",
+                ParamValue::List(vec!["^a=>b".into(), "c=>d".into()])
+            )]
+        )),
+        "relabel last level: ^a → b, +1 more"
+    );
     assert_eq!(sum(&stage("nope", &[])), "nope");
     assert_eq!(sum(&stage("split", &[("x", text("y"))])), "split (invalid)");
 }

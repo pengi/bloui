@@ -55,11 +55,7 @@ impl StageFactory for FilterLabel {
     }
     fn summary(&self, p: &ParamValues, registry: &Registry) -> String {
         let source = if p.text("source") == "level" {
-            match p.level("level") {
-                LevelRef::Index(i) => format!("level {i}"),
-                LevelRef::Name(n) => n,
-                LevelRef::Last => "last level".into(),
-            }
+            p.level("level").summary()
         } else {
             registry.dimension_summary(&p.dimension("dimension"))
         };
@@ -119,20 +115,11 @@ struct Filter {
     include: bool,
 }
 
-fn find_level(r: &LevelRef, state: &PipelineState) -> Option<usize> {
-    let levels = &state.set.levels;
-    match r {
-        LevelRef::Index(i) => (*i < levels.len()).then_some(*i),
-        LevelRef::Name(n) => levels.iter().position(|l| l.name == *n),
-        LevelRef::Last => levels.len().checked_sub(1),
-    }
-}
-
 impl Stage for Filter {
-    fn check(&self, ctx: &PipelineCtx, input: &PipelineState) -> Availability {
+    fn check(&self, _ctx: &PipelineCtx, input: &PipelineState) -> Availability {
         match &self.source {
-            Source::Dimension(d) => d.availability(ctx, input),
-            Source::Level(r) => match find_level(r, input) {
+            Source::Dimension(d) => d.availability(input),
+            Source::Level(r) => match r.find(&input.set.levels) {
                 Some(_) => Availability::Available,
                 None => Availability::Unavailable("no such tree level".into()),
             },
@@ -154,7 +141,8 @@ impl Stage for Filter {
                 })?;
             }
             Source::Level(r) => {
-                let level = find_level(r, &state)
+                let level = r
+                    .find(&state.set.levels)
                     .ok_or_else(|| Error::Other("no such tree level".into()))?;
                 out.extend(
                     fragments

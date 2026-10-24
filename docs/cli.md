@@ -63,8 +63,23 @@ bloui-cli -i fw.elf -S 'filter-space space=vma start=0x20000000 end=0x20004000' 
 
 - Repeat a key to give a list: `patterns=^\.text patterns=^\.data`.
 - Set a dimension's own parameters with a dot:
-  `dimension=symbol dimension.fallback=none`.
+  `dimension=symbol dimension.fallback=none`. This nests, for dimensions
+  built on dimensions: `dimension=rules dimension.dimension=symbol-path
+  dimension.dimension.depth=2`.
+- Tables take one row per value, columns joined by the separator `--list`
+  shows: `regions=FLASH:0x08000000:64K`, `rules=^hw/uart=>drivers`.
 - Values can't contain spaces; use a project file for those.
+
+`-s DIM:K=V,..` and `--color-by` take the same keys, separated by commas
+(so values can't contain commas there):
+
+```sh
+# Group symbols by namespace two levels deep, then rename some groups.
+bloui-cli -i fw.elf -s 'rules:dimension=symbol-path,dimension.depth=2,rules=^hw/uart=>drivers/uart,rules=^(app)=>$1,unmatched=other'
+
+# Rename memory regions; free space added later gets the new names too.
+bloui-cli -i fw.elf -s memory-region -S 'relabel rules=^FLASH$=>flash rules=^RAM$=>ram' --free
+```
 
 ## Examples
 

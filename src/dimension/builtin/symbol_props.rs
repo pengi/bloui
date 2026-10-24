@@ -6,6 +6,7 @@ use crate::Result;
 use crate::dimension::{Dimension, DimensionFactory, Labeling};
 use crate::model::{Binary, Interner, Label, Symbol, SymbolBinding, SymbolKind};
 use crate::param::{ParamSpec, ParamValues};
+use crate::registry::Registry;
 
 pub struct SymbolKindDim;
 
@@ -22,7 +23,7 @@ impl DimensionFactory for SymbolKindDim {
     fn params(&self) -> Vec<ParamSpec> {
         vec![fallback_param()]
     }
-    fn create(&self, params: &ParamValues) -> Result<Box<dyn Dimension>> {
+    fn create(&self, params: &ParamValues, _registry: &Registry) -> Result<Box<dyn Dimension>> {
         Ok(Box::new(ByProperty {
             section_fallback: section_fallback(params),
             property: |s| match s.kind {
@@ -50,7 +51,7 @@ impl DimensionFactory for SymbolBindingDim {
     fn params(&self) -> Vec<ParamSpec> {
         vec![fallback_param()]
     }
-    fn create(&self, params: &ParamValues) -> Result<Box<dyn Dimension>> {
+    fn create(&self, params: &ParamValues, _registry: &Registry) -> Result<Box<dyn Dimension>> {
         Ok(Box::new(ByProperty {
             section_fallback: section_fallback(params),
             property: |s| match s.binding {

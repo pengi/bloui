@@ -8,6 +8,7 @@ pub mod builtin;
 use crate::Result;
 use crate::model::{AddrSpace, Availability, Binary, Interner, Label, Overlap, Span};
 use crate::param::{ParamSpec, ParamValues};
+use crate::registry::Registry;
 
 /// One labeled range, in whatever space suits the dimension.
 #[derive(Clone, Debug)]
@@ -57,6 +58,12 @@ impl Labeling {
 pub trait Dimension: Send + Sync {
     fn label(&self, bin: &Binary, interner: &mut Interner) -> Result<Labeling>;
 
+    /// Whether the dimension can label this binary (it may need a linker
+    /// map, say).
+    fn availability(&self, _bin: &Binary) -> Availability {
+        Availability::Available
+    }
+
     /// Whether free-space chunks get this dimension's labels. Otherwise
     /// they are labeled `[free]`.
     fn labels_free_space(&self) -> bool {
@@ -72,9 +79,7 @@ pub trait DimensionFactory: Send + Sync {
     fn params(&self) -> Vec<ParamSpec> {
         Vec::new()
     }
-    fn availability(&self, _bin: &Binary) -> Availability {
-        Availability::Available
-    }
-    /// `params` are already resolved against [`Self::params`].
-    fn create(&self, params: &ParamValues) -> Result<Box<dyn Dimension>>;
+    /// `params` are already resolved against [`Self::params`]. The registry
+    /// is for dimensions built on other dimensions.
+    fn create(&self, params: &ParamValues, registry: &Registry) -> Result<Box<dyn Dimension>>;
 }

@@ -1,0 +1,13 @@
+Pipeline (load):
+   1. open fw.elf                                                                   0 → 444            +444  ok
+      attached ./cxx/fw.map
+   2. keep load                                                                   444 → 444              +0  ok
+   3. split by rules (dimension=symbol-path, rules=3 rows, unmatched=other)       444 → 444              +0  ok
+
+     FILE    MEMORY      LOAD      %L  rules
+      444       444       444  100.0%  TOTAL
+      258       258       258   58.1%  ├─ [other]
+      106       106       106   23.9%  ├─ containers
+       50        50        50   11.3%  ├─ app
+       30        30        30    6.8%  └─ drivers
+       30        30        30    6.8%     └─ uart

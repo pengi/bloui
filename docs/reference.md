@@ -83,6 +83,18 @@ Keeps bytes by where they are.
 | `space` | `vma` | the space of the range: `vma`, `lma` or `file` |
 | `start`, `end` | empty | the range, e.g. `0x20000000`, `64K`; empty means unbounded |
 
+### `relabel` (transform)
+
+Renames a tree level's labels by rules (see [Rules](#rules)). Labels no
+rule matches stay as they are. Later inputs and free space get the new
+labels too: the level's dimension becomes a `rules` dimension over the old
+one.
+
+| Parameter | Default | Meaning |
+|-----------|---------|---------|
+| `level` | last | level name or index |
+| `rules` | | the rules |
+
 ## Dimensions
 
 | Id | Labels | Unattributed bytes |
@@ -97,6 +109,7 @@ Keeps bytes by where they are.
 | `symbol-binding` | `global`, `weak`, `local` | like `symbol` |
 | `memory-region` | memory region, from the linker map or a `memory-regions` stage | `[no region]` |
 | `object-file` | object file from the linker map; archive members as `libhal.a` › `gpio.o` | `[<section>]`, `[fill]` for padding |
+| `rules` | another dimension's labels, renamed by [rules](#rules) | the other dimension's, renamed too |
 | `input-section` | input section from the linker map, like `.text.uart_init` | `[<section>]`, `[fill]` for padding |
 
 Parameters:
@@ -117,6 +130,10 @@ Parameters:
   without one are `[no namespace]`); and `demangle`, `hash`, `fallback`
   as for `symbol`.
 - `symbol-kind`, `symbol-binding`: `fallback` as for `symbol`.
+- `rules`: `dimension` = the dimension whose labels are renamed (default
+  `symbol`), with its own parameters; `rules`; `unmatched` = `keep` (the
+  label as it is) or `other` (`[other]`). Available where that dimension
+  is.
 - `memory-region`: `by` = `auto` (load address for bytes with content, so
   `.data` is in flash; runtime address otherwise), `vma` or `lma`.
 - `object-file`: `archives` = `nest` (`libhal.a` › `gpio.o`), `flat`
@@ -130,3 +147,29 @@ Categories come from the section type and flags: `unwind` is `.ARM.exidx`,
 `.ARM.extab`, `.eh_frame*` and `.gcc_except_table`; `debug` is `.debug*`,
 `.zdebug*`, `.stab*` and `.line`; `symtab` includes string tables; `meta` is
 notes, `.comment`, `.ARM.attributes` and other non-allocated sections.
+
+## Rules
+
+`relabel` and the `rules` dimension take an ordered list of rules: a regex
+`pattern` and a `label`. The first rule whose pattern matches a label (path
+labels as their parts joined by `/`, like `libhal.a/gpio.o`) gives the new
+label, which replaces the whole old one:
+
+- `$1`, `${name}` insert capture groups; `$$` is a `$`.
+- A `/` in the label makes a path: `drivers/$1` gives `drivers` › `uart`.
+- A label that comes out empty keeps the old label.
+
+On the command line, a rule is `PATTERN=>LABEL`, e.g.
+`rules=^libhal\.a/(.*)=>hal/$1`. In a project file, rules are either such
+rows or a table:
+
+```toml
+[[stage]]
+id = "relabel"
+rules = ['^libhal\.a/(.*)=>hal/$1']
+
+# or
+[[stage.rules]]
+pattern = '^libhal\.a/(.*)'
+label = "hal/$1"
+```

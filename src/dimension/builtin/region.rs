@@ -3,6 +3,7 @@ use crate::Result;
 use crate::dimension::{Dimension, DimensionFactory, Labeling};
 use crate::model::{AddrSpace, Availability, Binary, Interner, Label, Overlap};
 use crate::param::{ParamSpec, ParamValues};
+use crate::registry::Registry;
 
 pub struct RegionDim;
 
@@ -30,16 +31,7 @@ impl DimensionFactory for RegionDim {
             ],
         )]
     }
-    fn availability(&self, bin: &Binary) -> Availability {
-        if bin.memory_regions().is_empty() {
-            Availability::Unavailable(
-                "no memory regions: attach a linker map or add a memory-regions stage".into(),
-            )
-        } else {
-            Availability::Available
-        }
-    }
-    fn create(&self, params: &ParamValues) -> Result<Box<dyn Dimension>> {
+    fn create(&self, params: &ParamValues, _registry: &Registry) -> Result<Box<dyn Dimension>> {
         let spaces: &[AddrSpace] = match params.text("by") {
             "vma" => &[AddrSpace::Vma],
             "lma" => &[AddrSpace::Lma],
@@ -54,6 +46,15 @@ struct Regions {
 }
 
 impl Dimension for Regions {
+    fn availability(&self, bin: &Binary) -> Availability {
+        if bin.memory_regions().is_empty() {
+            Availability::Unavailable(
+                "no memory regions: attach a linker map or add a memory-regions stage".into(),
+            )
+        } else {
+            Availability::Available
+        }
+    }
     fn label(&self, bin: &Binary, interner: &mut Interner) -> Result<Labeling> {
         let mut l = Labeling::new(
             Overlap::FirstWins,

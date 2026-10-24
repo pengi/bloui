@@ -23,7 +23,7 @@ struct Form {
     specs: Vec<ParamSpec>,
     values: RefCell<ParamValues>,
     /// Label and field of each spec, for showing and hiding.
-    rows: RefCell<Vec<(gtk::Widget, gtk::Widget)>>,
+    rows: RefCell<Vec<(gtk::Widget, Vec<gtk::Widget>)>>,
     tag: String,
     on_change: OnChange,
 }
@@ -47,10 +47,12 @@ impl Form {
 
     fn update_visibility(&self) {
         let values = self.values.borrow();
-        for (spec, (label, field)) in self.specs.iter().zip(self.rows.borrow().iter()) {
+        for (spec, (label, fields)) in self.specs.iter().zip(self.rows.borrow().iter()) {
             let visible = spec.is_visible(&values, &self.specs);
             label.set_visible(visible);
-            field.set_visible(visible);
+            for f in fields {
+                f.set_visible(visible);
+            }
         }
     }
 }
@@ -94,17 +96,34 @@ pub fn build(
             label.set_tooltip_text(Some(spec.help));
             field.set_tooltip_text(Some(spec.help));
         }
-        if matches!(spec.kind, ParamKind::Table(_)) {
-            // Tables are wide: the label above, the table across.
-            grid.attach(&label, 0, row, 2, 1);
-            grid.attach(&field, 0, row + 1, 2, 1);
-            row += 2;
-        } else {
-            grid.attach(&label, 0, row, 1, 1);
-            grid.attach(&field, 1, row, 1, 1);
-            row += 1;
-        }
-        form.rows.borrow_mut().push((label.upcast(), field));
+        let fields = match spec.kind {
+            ParamKind::Table { .. } => {
+                // Tables are wide: the label above, the table across.
+                grid.attach(&label, 0, row, 2, 1);
+                grid.attach(&field, 0, row + 1, 2, 1);
+                row += 2;
+                vec![field]
+            }
+            ParamKind::Dimension => {
+                // The drop-down next to the label, the dimension's own
+                // parameters across below it, so nesting only indents.
+                let drop = field.first_child().expect("dimension drop-down");
+                drop.unparent();
+                drop.set_hexpand(true);
+                grid.attach(&label, 0, row, 1, 1);
+                grid.attach(&drop, 1, row, 1, 1);
+                grid.attach(&field, 0, row + 1, 2, 1);
+                row += 2;
+                vec![drop, field]
+            }
+            _ => {
+                grid.attach(&label, 0, row, 1, 1);
+                grid.attach(&field, 1, row, 1, 1);
+                row += 1;
+                vec![field]
+            }
+        };
+        form.rows.borrow_mut().push((label.upcast(), fields));
     }
     form.update_visibility();
     // Fields only hold weak references; the grid keeps the form alive.
@@ -155,7 +174,11 @@ fn field(form: &Rc<Form>, index: usize, value: ParamValue, ctx: &Rc<FormCtx>) ->
         ParamKind::TextList => text_list(value, move |v| set(&spec, v)),
         ParamKind::Dimension => dimension(value, ctx, &form.tag, spec.key, move |v| set(&spec, v)),
         ParamKind::Level => level(value, &ctx.levels, move |v| set(&spec, v)),
-        ParamKind::Table(cols) => table(cols.clone(), value, move |v| set(&spec, v)),
+        ParamKind::Table { columns, .. } => {
+            // Rows may be stored as text, as typed on a command line.
+            let value = check_value(&spec, &value).unwrap_or(value);
+            table(columns.clone(), value, move |v| set(&spec, v))
+        }
         ParamKind::Path => {
             let entry = text_entry(&spec, &value, set);
             path_field(entry)
@@ -300,6 +323,7 @@ fn dimension(
     let id = map.text("id").to_owned();
     map.remove("id");
 
+    // The form takes the drop-down out of the box (see `build`).
     let b = gtk::Box::new(gtk::Orientation::Vertical, 6);
     let names: Vec<&str> = dims.iter().map(|d| d.1).collect();
     let drop = drop_down(&names);
