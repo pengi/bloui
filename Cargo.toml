@@ -7,6 +7,7 @@ license = "GPL-2.0-only"
 description = "Size analyzer for ELF files, with a tree list and a treemap"
 repository = "https://github.com/pengi/bloui"
 default-run = "bloui-cli"
+exclude = [".vscode"]
 
 [features]
 default = ["gui"]
