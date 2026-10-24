@@ -92,6 +92,9 @@ Keeps bytes by where they are.
 | `section` | output section; also `[ELF header]`, `[program headers]`, `[section headers]` | `[no section]` (padding) |
 | `category` | `code`, `rodata`, `data`, `bss`, `unwind`, `debug`, `symtab`, `reloc`, `meta`, `headers` | `[unmapped]` |
 | `symbol` | symbol name, demangled (Rust, C++); the smallest symbol wins where symbols overlap | `[<section>]`, or `[no symbol]` with `fallback=none` |
+| `symbol-path` | the demangled symbol name as a path: `hw` › `uart` › `Port` › `write` | like `symbol` |
+| `symbol-kind` | `function`, `object`, `tls`, `other` | like `symbol` |
+| `symbol-binding` | `global`, `weak`, `local` | like `symbol` |
 | `memory-region` | memory region, from the linker map or a `memory-regions` stage | `[no region]` |
 | `object-file` | object file from the linker map; archive members as `libhal.a` › `gpio.o` | `[<section>]`, `[fill]` for padding |
 | `input-section` | input section from the linker map, like `.text.uart_init` | `[<section>]`, `[fill]` for padding |
@@ -103,6 +106,17 @@ Parameters:
   `::h0123…` and crate disambiguators) or `keep`; `fallback` = `section`
   or `none`. C++ template arguments are shown as `cpp_demangle` prints
   them (`(unsigned int)64` where `c++filt` prints `64u`).
+- `symbol-path`: `split` = `namespace` (at `::` outside brackets; C++
+  argument lists and return types are dropped; a Rust `<Type as Trait>::f`
+  goes under the type's path, or the trait's when the type has none, like
+  `<u32 as core::fmt::Display>`), `chars` (at any of the characters in
+  `chars`, default `_`) or `regex` (the capture groups of `regex` that
+  match are the parts; names that don't match stay whole); `depth` = at
+  most this many parts, 0 for all (`depth=1`: crate or top namespace);
+  `leaf` = `keep` or `drop` (group by namespace and type only; names
+  without one are `[no namespace]`); and `demangle`, `hash`, `fallback`
+  as for `symbol`.
+- `symbol-kind`, `symbol-binding`: `fallback` as for `symbol`.
 - `memory-region`: `by` = `auto` (load address for bytes with content, so
   `.data` is in flash; runtime address otherwise), `vma` or `lma`.
 - `object-file`: `archives` = `nest` (`libhal.a` › `gpio.o`), `flat`

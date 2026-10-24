@@ -8,6 +8,8 @@ mod region;
 mod section;
 mod segment;
 mod symbol;
+mod symbol_path;
+mod symbol_props;
 
 use super::DimensionFactory;
 
@@ -18,6 +20,9 @@ pub fn all() -> Vec<Box<dyn DimensionFactory>> {
         Box::new(section::SectionDim),
         Box::new(category::CategoryDim),
         Box::new(symbol::SymbolDim),
+        Box::new(symbol_path::SymbolPathDim),
+        Box::new(symbol_props::SymbolKindDim),
+        Box::new(symbol_props::SymbolBindingDim),
         Box::new(region::RegionDim),
         Box::new(object_file::ObjectFileDim),
         Box::new(object_file::InputSectionDim),

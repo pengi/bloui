@@ -103,6 +103,24 @@ impl ParamSpec {
         )
     }
 
+    pub fn int(key: &'static str, label: &'static str, min: i64, max: i64, default: i64) -> Self {
+        Self::new(
+            key,
+            label,
+            ParamKind::Int { min, max },
+            ParamValue::Int(default),
+        )
+    }
+
+    pub fn regex(key: &'static str, label: &'static str, default: &str) -> Self {
+        Self::new(
+            key,
+            label,
+            ParamKind::Regex,
+            ParamValue::Text(default.into()),
+        )
+    }
+
     pub fn path(key: &'static str, label: &'static str) -> Self {
         Self::new(key, label, ParamKind::Path, ParamValue::Text(String::new()))
     }

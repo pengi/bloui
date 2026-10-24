@@ -25,6 +25,20 @@ pub struct Node {
     pub vma: Option<u64>,
 }
 
+impl Node {
+    /// Counts a fragment under this node.
+    fn add(&mut self, sizes: Sizes, vma: Option<u64>) {
+        self.sizes += sizes;
+        self.fragments += 1;
+        if sizes.memory > 0 {
+            self.vma = match (self.vma, vma) {
+                (Some(a), Some(b)) => Some(a.min(b)),
+                (a, b) => a.or(b),
+            };
+        }
+    }
+}
+
 /// An immutable result, ready for a frontend.
 #[derive(Clone, Debug)]
 pub struct AnalysisTree {
@@ -38,6 +52,9 @@ pub struct AnalysisTree {
 
 impl AnalysisTree {
     pub const ROOT: NodeId = NodeId(0);
+    /// The name of the child holding a node's own bytes, when the node has
+    /// children too.
+    pub const SELF: &'static str = "[self]";
 
     pub fn build(state: &PipelineState, interner: &Interner, sort: Metric) -> Self {
         let FragmentSet { fragments, levels } = &state.set;
@@ -53,6 +70,7 @@ impl AnalysisTree {
         }];
         let mut index: HashMap<(u32, u32, Sym), NodeId> = HashMap::new();
         let mut leaf_of = Vec::with_capacity(fragments.len());
+        let mut vmas = Vec::with_capacity(fragments.len());
         let mut path = Vec::new();
         for f in fragments {
             let vma = state
@@ -91,17 +109,38 @@ impl AnalysisTree {
                 }
             }
             leaf_of.push(cur);
+            vmas.push(vma);
             for id in &path {
-                let n = &mut nodes[id.0 as usize];
-                n.sizes += f.sizes;
-                n.fragments += 1;
-                if f.sizes.memory > 0 {
-                    n.vma = match (n.vma, vma) {
-                        (Some(a), Some(b)) => Some(a.min(b)),
-                        (a, b) => a.or(b),
-                    };
-                }
+                nodes[id.0 as usize].add(f.sizes, vma);
             }
+        }
+        // A path label can end where another one goes on (`fw › main` and
+        // `fw › main › {{closure}}`). Such a node's own bytes go to a
+        // `[self]` child, so children always add up to their parent.
+        let mut self_child: HashMap<NodeId, NodeId> = HashMap::new();
+        for (i, f) in fragments.iter().enumerate() {
+            let leaf = leaf_of[i];
+            if nodes[leaf.0 as usize].children.is_empty() {
+                continue;
+            }
+            let child = *self_child.entry(leaf).or_insert_with(|| {
+                let id = NodeId(nodes.len() as u32);
+                let n = &nodes[leaf.0 as usize];
+                nodes.push(Node {
+                    name: Self::SELF.into(),
+                    parent: Some(leaf),
+                    children: Vec::new(),
+                    depth: n.depth + 1,
+                    level: n.level,
+                    sizes: Sizes::default(),
+                    fragments: 0,
+                    vma: None,
+                });
+                nodes[leaf.0 as usize].children.push(id);
+                id
+            });
+            nodes[child.0 as usize].add(f.sizes, vmas[i]);
+            leaf_of[i] = child;
         }
         let mut tree = AnalysisTree {
             nodes,

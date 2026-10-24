@@ -258,3 +258,21 @@ fn rust_regions_symbols() {
         ],
     );
 }
+
+#[test]
+fn cxx_symbol_paths() {
+    cli(
+        "cxx_symbol_paths",
+        &[
+            "-i",
+            "cxx/fw.elf",
+            "-k",
+            "load",
+            "-s",
+            "symbol-path",
+            "-m",
+            "load",
+            "--bytes",
+        ],
+    );
+}

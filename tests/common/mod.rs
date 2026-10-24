@@ -75,3 +75,16 @@ pub fn find<'a>(tree: &'a AnalysisTree, path: &[&str]) -> Option<&'a bloui::engi
     }
     Some(tree.node(cur))
 }
+
+/// Like [`find`], but the node's id.
+pub fn find_id(tree: &AnalysisTree, path: &[&str]) -> bloui::engine::NodeId {
+    let mut cur = AnalysisTree::ROOT;
+    for name in path {
+        cur = *tree
+            .children(cur)
+            .iter()
+            .find(|&&c| &*tree.node(c).name == *name)
+            .unwrap_or_else(|| panic!("no node {path:?}"));
+    }
+    cur
+}

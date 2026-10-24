@@ -1,0 +1,25 @@
+     FILE    MEMORY      LOAD      %L  symbol path
+      444       444       444  100.0%  TOTAL
+      136       136       136   30.6%  ├─ hw
+       54        54        54   12.2%  │  ├─ RingBuffer<unsigned long, (unsigned int)16>
+       30        30        30    6.8%  │  │  ├─ pop
+       24        24        24    5.4%  │  │  └─ push
+       52        52        52   11.7%  │  ├─ RingBuffer<unsigned char, (unsigned int)64>
+       30        30        30    6.8%  │  │  ├─ pop
+       22        22        22    5.0%  │  │  └─ push
+       30        30        30    6.8%  │  └─ uart
+       30        30        30    6.8%  │     └─ Port
+       22        22        22    5.0%  │        ├─ write
+        8         8         8    1.8%  │        └─ operator<<
+      104       104       104   23.4%  ├─ main
+       68        68        68   15.3%  ├─ Reset_Handler
+       64        64        64   14.4%  ├─ vector_table
+       50        50        50   11.3%  ├─ app
+       26        26        26    5.9%  │  ├─ (anonymous namespace)
+       26        26        26    5.9%  │  │  └─ banner
+       24        24        24    5.4%  │  └─ tick
+       12        12        12    2.7%  ├─ [.rodata]
+        4         4         4    0.9%  ├─ SysTick_Handler
+        4         4         4    0.9%  ├─ [.text]
+        2         2         2    0.5%  └─ board
+        2         2         2    0.5%     └─ default_handler

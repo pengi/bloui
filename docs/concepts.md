@@ -34,7 +34,10 @@ split and filter stages. Bytes a dimension can't attribute get an explicit
 label in brackets, like `[no symbol]` or `[ELF header]`.
 
 A label can be a path (`a/b/c`), which becomes several tree levels. Filters
-match path labels as text joined with `/`.
+match path labels as text joined with `/`. When one label is a prefix of
+another (`fw › main` and `fw › main › {{closure}}`), the shorter one's
+bytes go to a `[self]` node under it, so children always add up to their
+parent.
 
 See [the reference](reference.md) for all dimensions.
 
