@@ -78,4 +78,20 @@ Everything else is in [docs/](docs/README.md): [the GUI](docs/gui.md),
 [the command line](docs/cli.md), [concepts](docs/concepts.md) and [all
 stages and dimensions](docs/reference.md).
 
+## Developed with AI
+
+Bloui is one of those tools that just should work, within clear
+boundaries, and that helps with more serious development. That makes it
+a perfect fit for AI coding.
+
+The author specified the requirements and followed up on them, and the
+development process was followed at every step.
+
+With that said, Bloui is a product of AI. It is here to assist you in
+understanding and improving the product that you develop.
+
+## Author
+
+Developed and specified by [pengi](https://github.com/pengi).
+
 License: GPL-2.0-only, see [LICENSE](LICENSE).
