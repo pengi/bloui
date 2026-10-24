@@ -26,6 +26,42 @@ pub fn attach_linkmap(
     })
 }
 
+/// Attach a separate debug file to `bin`, if it matches. Cached like
+/// linker maps.
+pub fn attach_debug_file(
+    ctx: &mut PipelineCtx,
+    bin: &Arc<Binary>,
+    path: &Path,
+) -> Result<Arc<Binary>> {
+    let name = path.display().to_string();
+    let debug = ctx.open_binary(path, None, &name)?;
+    let key = format!("debugfile:{}:{}", path.display(), debug.uid);
+    ctx.derive_binary(bin, &key, |b| {
+        crate::debuginfo::check(b, &debug)?;
+        let src = crate::debuginfo::separate_source(b, &debug);
+        Ok(b.derive(|d| d.attachments.debug = Some(Arc::new(src))))
+    })
+}
+
+/// Look for a separate debug file for `bin` and attach the first that
+/// matches. Files that are there but don't match are reported.
+pub fn find_debug_file(ctx: &mut PipelineCtx, bin: &Arc<Binary>) -> Option<Arc<Binary>> {
+    let roots = [PathBuf::from(crate::debuginfo::DEBUG_ROOT)];
+    for path in crate::debuginfo::candidates(bin, &roots) {
+        if !path.is_file() {
+            continue;
+        }
+        match attach_debug_file(ctx, bin, &path) {
+            Ok(b) => {
+                ctx.note(format!("debug info from {}", path.display()));
+                return Some(b);
+            }
+            Err(e) => ctx.warn(format!("debug file not used: {e}")),
+        }
+    }
+    None
+}
+
 /// The binaries a stage applies to: one by name, or all.
 fn targets(state: &PipelineState, name: &str) -> Result<Vec<BinaryId>> {
     if name.is_empty() {
@@ -194,6 +230,75 @@ impl Stage for SetRegions {
             })?;
             state.binaries[id.0 as usize] = b;
         }
+        Ok(state)
+    }
+}
+
+pub struct DebugFile;
+
+impl StageFactory for DebugFile {
+    fn id(&self) -> &'static str {
+        "debug-file"
+    }
+    fn kind(&self) -> StageKind {
+        StageKind::Attach
+    }
+    fn name(&self) -> &'static str {
+        "Debug file"
+    }
+    fn description(&self) -> &'static str {
+        "Take an input's DWARF debug info from a separate file (objcopy --only-keep-debug)"
+    }
+    fn params(&self) -> Vec<ParamSpec> {
+        vec![
+            ParamSpec::path("path", "Debug file")
+                .help("Empty: look for it by build id, debug link or name"),
+            ParamSpec::text("binary", "Input", "").help("Name of the input; the last one if empty"),
+        ]
+    }
+    fn summary(&self, p: &ParamValues, _registry: &Registry) -> String {
+        match Path::new(p.text("path")).file_name() {
+            Some(n) => format!("debug info from {}", n.to_string_lossy()),
+            None => "debug info (look for it)".into(),
+        }
+    }
+    fn create(&self, params: &ParamValues, _registry: &Registry) -> Result<Box<dyn Stage>> {
+        Ok(Box::new(AttachDebug {
+            path: PathBuf::from(params.text("path")),
+            binary: params.text("binary").to_owned(),
+        }))
+    }
+}
+
+struct AttachDebug {
+    path: PathBuf,
+    binary: String,
+}
+
+impl Stage for AttachDebug {
+    fn check(&self, _ctx: &PipelineCtx, input: &PipelineState) -> crate::model::Availability {
+        match input.find_binary(&self.binary) {
+            Some(_) => crate::model::Availability::Available,
+            None => crate::model::Availability::Unavailable("no input file".into()),
+        }
+    }
+
+    fn apply(&self, ctx: &mut PipelineCtx, mut state: PipelineState) -> Result<PipelineState> {
+        let id = state
+            .find_binary(&self.binary)
+            .ok_or_else(|| Error::param("binary", format!("no input named '{}'", self.binary)))?;
+        let bin = state.binary(id).clone();
+        let b = if self.path.as_os_str().is_empty() {
+            find_debug_file(ctx, &bin).ok_or_else(|| {
+                Error::Other(format!("no debug file found for {}", bin.path.display()))
+            })?
+        } else {
+            let path = ctx.resolve_path(&self.path);
+            let b = attach_debug_file(ctx, &bin, &path)?;
+            ctx.note(format!("debug info from {}", path.display()));
+            b
+        };
+        state.binaries[id.0 as usize] = b;
         Ok(state)
     }
 }

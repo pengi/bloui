@@ -42,7 +42,13 @@ impl StageFactory for OpenFile {
             ParamSpec::choice(
                 "debug",
                 "Debug info",
-                &[("auto", "Use the file's DWARF"), ("off", "Don't use it")],
+                &[
+                    (
+                        "auto",
+                        "The file's DWARF, or a debug file found by build id, debug link or name",
+                    ),
+                    ("off", "Don't use it"),
+                ],
             ),
         ]
     }
@@ -102,11 +108,15 @@ impl Stage for Open {
                 Err(e) => ctx.warn(format!("linker map not attached: {e}")),
             }
         }
-        if self.debug && bin.sections.iter().any(|s| s.name == ".debug_info") {
-            bin = ctx.derive_binary(&bin, "debug:own", |b| {
-                let src = crate::debuginfo::own_source(b).map(Arc::new);
-                Ok(b.derive(|d| d.attachments.debug = src))
-            })?;
+        if self.debug {
+            if crate::debuginfo::own_source(&bin).is_some() {
+                bin = ctx.derive_binary(&bin, "debug:own", |b| {
+                    let src = crate::debuginfo::own_source(b).map(Arc::new);
+                    Ok(b.derive(|d| d.attachments.debug = src))
+                })?;
+            } else if let Some(b) = super::find_debug_file(ctx, &bin) {
+                bin = b;
+            }
         }
         let id = BinaryId(state.binaries.len() as u32);
         let fragments = bin

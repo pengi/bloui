@@ -11,6 +11,9 @@ use gimli::{AttributeValue, EndianSlice, Operation, RunTimeEndian, UnitOffset};
 use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
 
+mod file;
+pub use file::{DEBUG_ROOT, build_id, candidates, check, debuglink, separate_source};
+
 type R<'a> = EndianSlice<'a, RunTimeEndian>;
 type UnitRef<'u, 'd> = gimli::UnitRef<'u, R<'d>>;
 type Entry<'u, 'd> = gimli::DebuggingInformationEntry<'u, 'u, R<'d>>;
@@ -33,10 +36,13 @@ pub fn own_source(bin: &Binary) -> Option<DebugSource> {
     let sections: Vec<(String, Span)> = bin
         .sections
         .iter()
-        .filter(|s| s.name.starts_with(".debug_"))
+        .filter(|s| s.name.starts_with(".debug_") || s.name.starts_with(".zdebug_"))
         .filter_map(|s| Some((s.name.clone(), s.file?)))
         .collect();
-    if !sections.iter().any(|(n, _)| n == ".debug_info") {
+    if !sections
+        .iter()
+        .any(|(n, _)| n == ".debug_info" || n == ".zdebug_info")
+    {
         return None;
     }
     Some(source(bin, bin, sections))

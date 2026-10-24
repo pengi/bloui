@@ -232,3 +232,91 @@ fn dwarf_dimensions_need_debug_info() {
     let errors: Vec<_> = result.errors().map(|(i, e)| (i, e.to_string())).collect();
     assert_eq!(errors, [(1, "no DWARF debug info".to_owned())]);
 }
+
+fn read_debugfile(name: &str) -> bloui::model::Binary {
+    read(&format!("debugfile/{name}"))
+}
+
+#[test]
+fn finds_separate_debug_files() {
+    use bloui::model::Metric;
+    let full = tree(vec![open(FW), split("compile-unit")], Metric::Load);
+    for name in ["linked.elf", "plain.elf"] {
+        let rel = format!("debugfile/{name}");
+        let (result, _) = run(vec![open(&rel), split("compile-unit")]);
+        let notes = &result.reports[0].notes;
+        assert!(
+            notes.iter().any(|n| n.starts_with("debug info from")),
+            "{notes:?}"
+        );
+        let t = tree(vec![open(&rel), split("compile-unit")], Metric::Load);
+        // Same sources as the cortexm firmware.
+        for unit in ["main.c", "uart.c", "hal/gpio.c"] {
+            assert_eq!(
+                find(&t, &[unit]).map(|n| n.sizes.load),
+                find(&full, &[unit]).map(|n| n.sizes.load),
+                "{name} {unit}"
+            );
+        }
+    }
+}
+
+#[test]
+fn build_id_and_debuglink() {
+    let linked = read_debugfile("linked.elf");
+    assert_eq!(
+        bloui::debuginfo::debuglink(&linked).as_deref(),
+        Some("linked.dbg")
+    );
+    let id = bloui::debuginfo::build_id(&linked).unwrap();
+    assert_eq!(id.len(), 20);
+    // By build id, under a debug directory.
+    let buildid = read_debugfile("buildid.elf");
+    let root = fixture("debugfile/root");
+    let first = bloui::debuginfo::candidates(&buildid, std::slice::from_ref(&root))[0].clone();
+    assert!(first.starts_with(root.join(".build-id")));
+    assert!(first.is_file(), "{}", first.display());
+    let debug = bloui::reader::read_file(
+        &bloui::registry::Registry::builtin().readers,
+        &first,
+        None,
+        "debug".into(),
+    )
+    .unwrap();
+    bloui::debuginfo::check(&buildid, &debug).unwrap();
+    // A debug file of another build doesn't match.
+    let other = read("cxx/fw.elf");
+    assert!(bloui::debuginfo::check(&buildid, &other).is_err());
+}
+
+#[test]
+fn debug_file_stage() {
+    use bloui::model::Metric;
+    let root = fixture("debugfile/root");
+    let id: String = bloui::debuginfo::build_id(&read_debugfile("buildid.elf"))
+        .unwrap()
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect();
+    let path = root
+        .join(".build-id")
+        .join(&id[..2])
+        .join(format!("{}.debug", &id[2..]));
+    let with = |path: &str| {
+        vec![
+            open("debugfile/buildid.elf"),
+            stage("debug-file", &[("path", text(path))]),
+            split("compile-unit"),
+        ]
+    };
+    let t = tree(with(&path.to_string_lossy()), Metric::Load);
+    assert!(find(&t, &["main.c"]).is_some());
+    // The wrong file fails the stage.
+    let mut runner = bloui::engine::Runner::new(Arc::new(bloui::registry::Registry::builtin()));
+    let result = runner.run(&bloui::pipeline::Pipeline {
+        stages: with(&fixture("cxx/fw.elf").to_string_lossy()),
+    });
+    let errors: Vec<_> = result.errors().map(|(i, e)| (i, e.to_string())).collect();
+    assert_eq!(errors.len(), 2, "{errors:?}");
+    assert!(errors[0].1.contains("doesn't match"), "{errors:?}");
+}

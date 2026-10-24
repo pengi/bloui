@@ -15,7 +15,7 @@ Loads a binary and adds all its bytes.
 | `name` | file name | name shown in the tree (`file` dimension) |
 | `reader` | `auto` | `auto` or `elf` |
 | `map` | `auto` | `auto`: attach `fw.map` or `fw.elf.map` next to `fw.elf` if there is one; `off` |
-| `debug` | `auto` | `auto`: use the file's DWARF debug info (for the DWARF dimensions); `off` |
+| `debug` | `auto` | `auto`: use the file's DWARF debug info (for the DWARF dimensions), or else a separate debug file (see `debug-file`); `off` |
 
 Levels split before this stage are applied to the new file's bytes too.
 Filters before it are not.
@@ -28,6 +28,24 @@ binary.
 | Parameter | Default | Meaning |
 |-----------|---------|---------|
 | `path` | next to the input | the map file |
+| `binary` | last input | the input's name |
+
+### `debug-file` (attach)
+
+Takes an input's DWARF debug info from a separate file, as made by
+`objcopy --only-keep-debug`. The file must match: the same build id if
+both have one, else the same address and size for every allocated
+section. `open-file` already looks for one when the input has no DWARF of
+its own, in this order: by build id in
+`/usr/lib/debug/.build-id/xx/rest.debug`; by the name in
+`.gnu_debuglink`, next to the input, in `.debug/` there, and under
+`/usr/lib/debug/<input's directory>/`; then `fw.debug` and
+`fw.elf.debug` next to `fw.elf`. Files found that don't match are
+reported and skipped.
+
+| Parameter | Default | Meaning |
+|-----------|---------|---------|
+| `path` | look for it | the debug file |
 | `binary` | last input | the input's name |
 
 ### `memory-regions` (attach)

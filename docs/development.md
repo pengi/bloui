@@ -139,6 +139,10 @@ and the built files, so tests don't need the toolchains:
   with plain `rustc` and linked by `arm-none-eabi-gcc` with GNU ld, so the
   map is a GNU ld map. The app crate has legacy-mangled names and `core`
   v0-mangled ones; `core` brings its DWARF along, hence the file size.
+- `debugfile/`: stripped builds of the cortexm sources (with a build id)
+  and their separate debug files: `linked.elf` (found by debug link),
+  `plain.elf` (`plain.debug` next to it), `buildid.elf` (under
+  `root/.build-id/`, with `root` as the debug directory).
 - `host/`: a small x86-64 PIE built with `gcc`. `build.sh` rebuilds it.
 
 After rebuilding a fixture, update the numbers in the tests and the

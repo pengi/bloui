@@ -12,7 +12,7 @@ mod relabel;
 mod split;
 
 use super::StageFactory;
-pub use attach::attach_linkmap;
+pub use attach::{attach_debug_file, attach_linkmap, find_debug_file};
 
 pub fn all() -> Vec<Box<dyn StageFactory>> {
     vec![
@@ -22,6 +22,7 @@ pub fn all() -> Vec<Box<dyn StageFactory>> {
         Box::new(filter_space::FilterSpace),
         Box::new(attach::LinkerMap),
         Box::new(attach::MemoryRegions),
+        Box::new(attach::DebugFile),
         Box::new(free_space::FreeSpace),
         Box::new(relabel::Relabel),
         Box::new(group_small::GroupSmall),

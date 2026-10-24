@@ -129,7 +129,8 @@ by the line table, so a `static inline` function or a C++ template from a
 header is counted in the header; with `lines=on`, down to source lines).
 Code without debug info (assembly built without `-g`, libgcc) keeps its
 section label, like `[.text]`. Debug info is read only when a pipeline
-uses it.
+uses it. It can also come from a separate debug file (see `debug-file`
+in the reference), found automatically for stripped binaries.
 
 ## Treemap
 
