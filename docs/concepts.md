@@ -146,6 +146,9 @@ the treemap show; something removed stays in the tree with size 0 and a
 negative change. Labels are matched by name (sections, symbols with
 demangled names and stripped Rust hashes, object files, …), not by
 address. Several inputs of the same role add up (bootloader and app).
+Tiles can be colored by change: new orange, grown red, shrunk green,
+unchanged grey, with weaker colors for small relative changes; removed
+code (blue in the legend and the list) has no tiles.
 
 ## Treemap
 

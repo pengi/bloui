@@ -126,7 +126,8 @@ struct Cli {
     layout: String,
 
     /// Color treemap tiles (and the legend) by a tree level, by name or
-    /// index, or by any dimension: `section`, `1`, `object-file:archives=flat`.
+    /// index, or by any dimension: `section`, `1`, `object-file:archives=flat`;
+    /// or by `change` from the base build (with --base).
     /// Default: the project's or preset's, else the first level.
     #[arg(long, value_name = "LEVEL|DIM[:K=V,..]")]
     color_by: Option<String>,
@@ -505,6 +506,13 @@ fn color_by(
     runner: &mut Runner,
     state: &bloui::pipeline::PipelineState,
 ) -> Result<ColorBy, String> {
+    if text == "change" {
+        return if tree.has_base {
+            Ok(ColorBy::Change)
+        } else {
+            Err("--color-by change needs a base build (--base)".into())
+        };
+    }
     if let Ok(i) = text.parse::<u32>() {
         return Ok(ColorBy::Level(i));
     }

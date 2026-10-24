@@ -436,3 +436,26 @@ fn diff_csv() {
         ],
     );
 }
+
+#[test]
+fn diff_change_legend() {
+    cli(
+        "diff_change_legend",
+        &[
+            "-i",
+            "diff/v2.elf",
+            "--base",
+            "diff/v1.elf",
+            "-k",
+            "load",
+            "-m",
+            "load",
+            "-s",
+            "section",
+            "--color-by",
+            "change",
+            "--legend",
+            "--bytes",
+        ],
+    );
+}

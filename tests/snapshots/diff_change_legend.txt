@@ -1,0 +1,11 @@
+     BASE      LOAD     DELTA  CHANGE  section
+     1668      1700       +32   +1.9%  TOTAL
+     1320      1324        +4   +0.3%  ├─ .text
+      172       200       +28  +16.3%  ├─ .rodata
+      160       160         0   +0.0%  ├─ .isr_vector
+        8         8         0   +0.0%  ├─ .ARM.exidx
+        8         8         0   +0.0%  └─ .data
+
+Legend (load):
+  #d9483b        32   1.9%  grown
+  #a8a8a8       176  10.4%  unchanged

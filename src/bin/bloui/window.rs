@@ -912,6 +912,7 @@ impl Window {
                 .get(*l as usize)
                 .map_or(String::new(), |l| l.name.clone()),
             ColorBy::Labels(labels) => labels.name.to_owned(),
+            ColorBy::Change => "change from the base".to_owned(),
         };
         self.legend
             .set(&what, tree.node(root).sizes.get(v.metric), entries);

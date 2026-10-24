@@ -103,6 +103,11 @@ bloui-cli -i v2.elf --base v1.elf -k load -m load -s symbol --order delta --chan
        ...
 ```
 
+`--color-by change` colors the treemap (`--treemap`) and the legend
+(`--legend`) by change: new orange, grown red, shrunk green, unchanged
+grey; grown and shrunk fade towards grey for small relative changes. The
+legend's sizes are the changes (removed code has no tiles, but is listed).
+
 The columns are the base size, the current size, the change and the
 change in percent of the base, all for the metric (`-m`). Removed things
 stay in the tree with size 0. CSV output gets `base_file`, `base_memory`

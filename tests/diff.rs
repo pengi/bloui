@@ -131,3 +131,38 @@ fn changed_only_keeps_changes_and_their_parents() {
     }
     assert!(t.leaf_of.iter().all(|l| (l.0 as usize) < t.nodes.len()));
 }
+
+#[test]
+fn change_colors_and_legend() {
+    use bloui::render::ColorScheme;
+    use bloui::render::color::{self, ColorBy};
+    let t = diff(&["symbol"], Metric::Load);
+    let id = |name: &str| find_id(&t, &[name]);
+    let scheme = ColorBy::Change.scheme(&t, Metric::Load);
+    let paint = |name: &str| scheme.paint(&t, id(name)).color;
+    assert_eq!(paint("report"), color::NEW);
+    assert_eq!(paint("crc_table"), color::UNCHANGED);
+    // banner grew by 67%, main by 3%: banner is redder.
+    let (banner, main) = (paint("banner"), paint("main"));
+    assert!(
+        banner.0 > main.0 && banner.1 < main.1,
+        "{banner:?} {main:?}"
+    );
+    assert_eq!(
+        ColorBy::Change
+            .label_of(&t, id("uart_put_hex"), Metric::Load)
+            .as_deref(),
+        Some("removed")
+    );
+    let legend = bloui::render::legend(&t, &ColorBy::Change, AnalysisTree::ROOT, Metric::Load, 10);
+    let entries: Vec<(&str, u64)> = legend.iter().map(|e| (&*e.label, e.size)).collect();
+    assert_eq!(
+        entries,
+        [
+            ("new", 0x2c + 27),
+            ("grown", 18 + 4),
+            ("removed", 0x2c + 0x11),
+            ("unchanged", 1700 - 0x2c - 27 - 0x2d - 0x8c),
+        ]
+    );
+}

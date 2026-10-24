@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 //! Tile colors.
 
-use crate::engine::{AnalysisTree, ColorLabels, NodeId};
+use crate::engine::{AnalysisTree, Change, ColorLabels, NodeId};
 use crate::model::Metric;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -44,6 +44,48 @@ pub const PALETTE: [Rgb; 12] = [
     Rgb(0x8c, 0x8c, 0xd8),
 ];
 
+/// Colors of changes from a base build, at full strength.
+pub const GROWN: Rgb = Rgb(0xd9, 0x48, 0x3b);
+pub const SHRUNK: Rgb = Rgb(0x3f, 0xa8, 0x4c);
+pub const NEW: Rgb = Rgb(0xf0, 0x7a, 0x1a);
+pub const REMOVED: Rgb = Rgb(0x3b, 0x6f, 0xe0);
+pub const UNCHANGED: Rgb = Rgb(0xa8, 0xa8, 0xa8);
+
+/// The label of a kind of change, for the legend.
+pub fn change_name(c: Change) -> &'static str {
+    match c {
+        Change::Same => "unchanged",
+        Change::Grown => "grown",
+        Change::Shrunk => "shrunk",
+        Change::New => "new",
+        Change::Removed => "removed",
+    }
+}
+
+/// The color of a node by its change: grown red, shrunk green, new
+/// orange, unchanged grey; growth and shrinking fade towards grey for
+/// small relative changes.
+pub fn change_color(tree: &AnalysisTree, node: NodeId, metric: Metric) -> Rgb {
+    let n = tree.node(node);
+    let change = n.change(metric);
+    let full = match change {
+        Change::Same => return UNCHANGED,
+        Change::New => return NEW,
+        Change::Removed => return REMOVED,
+        Change::Grown => GROWN,
+        Change::Shrunk => SHRUNK,
+    };
+    let (cur, base) = (n.sizes.get(metric), n.base.get(metric));
+    let rel = n.delta(metric).unsigned_abs() as f64 / cur.max(base).max(1) as f64;
+    let t = 0.35 + 0.65 * rel.min(1.0);
+    let mix = |a: u8, b: u8| (a as f64 + (b as f64 - a as f64) * t).round() as u8;
+    Rgb(
+        mix(UNCHANGED.0, full.0),
+        mix(UNCHANGED.1, full.1),
+        mix(UNCHANGED.2, full.2),
+    )
+}
+
 /// Color of free space.
 pub const FREE: Rgb = Rgb(0xd8, 0xd8, 0xd8);
 /// Color of bracketed placeholder labels like `[no symbol]`.
@@ -78,6 +120,9 @@ impl ColorMap {
     /// The colors for `color_by` over the whole tree, so zooming doesn't
     /// change them.
     pub fn new(tree: &AnalysisTree, color_by: &ColorBy, metric: Metric) -> Self {
+        if *color_by == ColorBy::Change {
+            return ColorMap::default();
+        }
         let labels = collect(tree, color_by, AnalysisTree::ROOT, metric);
         let mut taken = [false; PALETTE.len()];
         let mut colors = HashMap::new();
@@ -153,6 +198,8 @@ impl ColorScheme for LevelColors {
 pub enum ColorBy {
     Level(u32),
     Labels(Arc<ColorLabels>),
+    /// The change from the base build (see [`Change`]).
+    Change,
 }
 
 impl Default for ColorBy {
@@ -166,6 +213,7 @@ impl PartialEq for ColorBy {
         match (self, o) {
             (ColorBy::Level(a), ColorBy::Level(b)) => a == b,
             (ColorBy::Labels(a), ColorBy::Labels(b)) => Arc::ptr_eq(a, b),
+            (ColorBy::Change, ColorBy::Change) => true,
             _ => false,
         }
     }
@@ -177,6 +225,10 @@ impl ColorBy {
         match self {
             ColorBy::Level(l) => level_label(tree, node, *l),
             ColorBy::Labels(labels) => labels.dominant(node, metric).cloned(),
+            ColorBy::Change => match level_label(tree, node, 0).as_deref() {
+                Some("[free]") => Some("[free]".into()),
+                _ => Some(change_name(tree.node(node).change(metric)).into()),
+            },
         }
     }
 
@@ -197,8 +249,14 @@ pub struct ColorByScheme<'a> {
 
 impl ColorScheme for ColorByScheme<'_> {
     fn paint(&self, tree: &AnalysisTree, node: NodeId) -> Paint {
-        self.map
-            .paint(self.color_by.label_of(tree, node, self.metric).as_deref())
+        let label = self.color_by.label_of(tree, node, self.metric);
+        if *self.color_by == ColorBy::Change && label.as_deref() != Some("[free]") {
+            return Paint {
+                color: change_color(tree, node, self.metric),
+                shaded: true,
+            };
+        }
+        self.map.paint(label.as_deref())
     }
 }
 
@@ -223,6 +281,9 @@ pub fn legend(
     metric: Metric,
     max: usize,
 ) -> Vec<LegendEntry> {
+    if *color_by == ColorBy::Change {
+        return change_legend(tree, root, metric);
+    }
     let map = ColorMap::new(tree, color_by, metric);
     let mut entries: Vec<LegendEntry> = collect(tree, color_by, root, metric)
         .into_iter()
@@ -244,6 +305,62 @@ pub fn legend(
         });
     }
     entries
+}
+
+/// The kinds of change under `root`. The sizes are the changes (current
+/// minus base, as bytes either way), except for "unchanged", which is
+/// the unchanged size.
+fn change_legend(tree: &AnalysisTree, root: NodeId, metric: Metric) -> Vec<LegendEntry> {
+    let kinds = [
+        Change::New,
+        Change::Grown,
+        Change::Shrunk,
+        Change::Removed,
+        Change::Same,
+    ];
+    let mut sums = [0u64; 5];
+    // The biggest leaf of each kind (the zoom root for its entry).
+    let mut nodes = [(root, 0u64); 5];
+    // Leaves: the change of what is actually there.
+    let mut stack = vec![root];
+    while let Some(n) = stack.pop() {
+        let node = tree.node(n);
+        if !node.children.is_empty() {
+            stack.extend(&node.children);
+            continue;
+        }
+        if &*node.name == "[free]" {
+            continue;
+        }
+        let change = node.change(metric);
+        let i = kinds.iter().position(|&k| k == change).unwrap();
+        let size = match change {
+            Change::Same => node.sizes.get(metric),
+            _ => node.delta(metric).unsigned_abs(),
+        };
+        if size > nodes[i].1 {
+            nodes[i] = (n, size);
+        }
+        sums[i] += size;
+    }
+    kinds
+        .iter()
+        .zip(sums)
+        .zip(nodes)
+        .filter(|((_, size), _)| *size > 0)
+        .map(|((&k, size), (node, _))| LegendEntry {
+            label: change_name(k).into(),
+            color: match k {
+                Change::Same => UNCHANGED,
+                Change::Grown => GROWN,
+                Change::Shrunk => SHRUNK,
+                Change::New => NEW,
+                Change::Removed => REMOVED,
+            },
+            size,
+            node,
+        })
+        .collect()
 }
 
 /// The labels under `root` with their sizes and biggest nodes, biggest
