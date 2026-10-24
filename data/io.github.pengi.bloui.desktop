@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Bloui
+GenericName=ELF Size Analyzer
+Comment=See where the bytes in your firmware go
+Exec=bloui %f
+Icon=io.github.pengi.bloui
+Terminal=false
+Categories=Development;GTK;
+Keywords=elf;size;bloat;firmware;treemap;linker;map;
+MimeType=application/x-executable;application/x-sharedlib;application/x-object;
+StartupWMClass=bloui

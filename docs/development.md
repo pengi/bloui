@@ -68,6 +68,13 @@ src/
                    (widget painting the scene), worker (runs the Runner
                    off the GUI thread)
   bin/bloui-cli/   text frontend
+data/
+  io.github.pengi.bloui.desktop   desktop entry (the app id is
+                                  io.github.pengi.bloui)
+  icons/hicolor/                  the logo, also the window icon; bloui
+                                  adds data/icons to the icon theme when
+                                  run from the source tree
+docs/images/   the README's screenshot
 ```
 
 Dependencies go one way: `model`, `param`, `symname`, `rules` → `reader`, `dimension` →

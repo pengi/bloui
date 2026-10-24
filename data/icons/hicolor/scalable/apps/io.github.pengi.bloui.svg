@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <title>Bloui</title>
+  <defs>
+    <!-- Cushion shading: light from the top left, like the treemap -->
+    <radialGradient id="orange" cx="0.35" cy="0.3" r="0.85">
+      <stop offset="0" stop-color="#ffc58a"/>
+      <stop offset="0.45" stop-color="#e07a2c"/>
+      <stop offset="1" stop-color="#7a3a0c"/>
+    </radialGradient>
+    <radialGradient id="blue" cx="0.35" cy="0.3" r="0.85">
+      <stop offset="0" stop-color="#a9c4ff"/>
+      <stop offset="0.45" stop-color="#3b6fe0"/>
+      <stop offset="1" stop-color="#16316f"/>
+    </radialGradient>
+    <radialGradient id="green" cx="0.35" cy="0.3" r="0.85">
+      <stop offset="0" stop-color="#a6eeaf"/>
+      <stop offset="0.45" stop-color="#3fa84c"/>
+      <stop offset="1" stop-color="#154d1c"/>
+    </radialGradient>
+    <radialGradient id="yellow" cx="0.35" cy="0.3" r="0.85">
+      <stop offset="0" stop-color="#fff0b0"/>
+      <stop offset="0.45" stop-color="#e0b02a"/>
+      <stop offset="1" stop-color="#6e520a"/>
+    </radialGradient>
+    <radialGradient id="purple" cx="0.35" cy="0.3" r="0.85">
+      <stop offset="0" stop-color="#e2b8ff"/>
+      <stop offset="0.45" stop-color="#9b52d1"/>
+      <stop offset="1" stop-color="#46196a"/>
+    </radialGradient>
+    <linearGradient id="frame" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2c3448"/>
+      <stop offset="1" stop-color="#161b27"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="8" y="8" width="240" height="240" rx="44" fill="url(#frame)"/>
+
+  <!-- A small treemap: one big tile split in two, and four smaller ones -->
+  <rect x="28" y="28" width="112" height="124" rx="8" fill="url(#orange)"/>
+  <rect x="28" y="158" width="112" height="70" rx="8" fill="url(#orange)"/>
+  <rect x="146" y="28" width="82" height="96" rx="8" fill="url(#blue)"/>
+  <rect x="146" y="130" width="46" height="98" rx="8" fill="url(#green)"/>
+  <rect x="198" y="130" width="30" height="52" rx="7" fill="url(#yellow)"/>
+  <rect x="198" y="188" width="30" height="40" rx="7" fill="url(#purple)"/>
+</svg>
