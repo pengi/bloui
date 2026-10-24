@@ -4,6 +4,7 @@
 //! The library holds everything except the user interfaces. The `bloui`
 //! binary is the GTK frontend, and `bloui-cli` is the text frontend.
 
+pub mod debuginfo;
 pub mod dimension;
 pub mod engine;
 pub mod error;

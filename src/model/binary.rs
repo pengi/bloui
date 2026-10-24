@@ -455,6 +455,8 @@ pub struct Attachments {
     pub linkmap: Option<Arc<LinkMap>>,
     /// Memory regions set by a stage. Override the linker map's.
     pub memory_regions: Option<Arc<Vec<MemoryRegion>>>,
+    /// Debug information: the binary's own or a separate file's.
+    pub debug: Option<Arc<super::DebugSource>>,
 }
 
 /// A loaded binary, independent of its file format. Cheap to clone; a

@@ -6,6 +6,7 @@ use crate::pipeline::{PipelineCtx, PipelineState, Stage, StageFactory, StageKind
 use crate::registry::Registry;
 use crate::{Error, Result};
 use std::path::PathBuf;
+use std::sync::Arc;
 
 pub struct OpenFile;
 
@@ -38,6 +39,11 @@ impl StageFactory for OpenFile {
                     ("off", "Don't look for one"),
                 ],
             ),
+            ParamSpec::choice(
+                "debug",
+                "Debug info",
+                &[("auto", "Use the file's DWARF"), ("off", "Don't use it")],
+            ),
         ]
     }
     fn summary(&self, p: &ParamValues, _registry: &Registry) -> String {
@@ -68,6 +74,7 @@ impl StageFactory for OpenFile {
             name,
             reader,
             auto_map: params.text("map") == "auto",
+            debug: params.text("debug") == "auto",
         }))
     }
 }
@@ -77,6 +84,7 @@ struct Open {
     name: String,
     reader: Option<String>,
     auto_map: bool,
+    debug: bool,
 }
 
 impl Stage for Open {
@@ -93,6 +101,12 @@ impl Stage for Open {
                 }
                 Err(e) => ctx.warn(format!("linker map not attached: {e}")),
             }
+        }
+        if self.debug && bin.sections.iter().any(|s| s.name == ".debug_info") {
+            bin = ctx.derive_binary(&bin, "debug:own", |b| {
+                let src = crate::debuginfo::own_source(b).map(Arc::new);
+                Ok(b.derive(|d| d.attachments.debug = src))
+            })?;
         }
         let id = BinaryId(state.binaries.len() as u32);
         let fragments = bin

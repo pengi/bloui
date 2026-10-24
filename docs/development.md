@@ -43,6 +43,8 @@ src/
   param/       parameter schemas and values (stage/dimension settings)
   reader/      Reader trait; elf/ is the only format-specific code
   linkmap/     linker map parsers (GNU ld) and the map/binary check
+  debuginfo/   DWARF reader (gimli) into model::DebugInfo: compile units,
+               line ranges, functions and inlined scopes, variables
   symname/     symbol names: demangling (Rust, C++), splitting into paths
   rules/       regex relabeling rules (rules dimension, relabel stage)
   dimension/   Dimension trait; builtin/ has file, segment, section,

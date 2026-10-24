@@ -3,6 +3,7 @@
 
 pub mod addr;
 pub mod binary;
+pub mod debuginfo;
 pub mod fragment;
 pub mod intern;
 pub mod linkmap;
@@ -14,6 +15,7 @@ pub use binary::{
     Attachments, Binary, BinaryId, BinaryParts, Bytes, Chunk, ChunkTable, FileRegion, FormatInfo,
     Section, SectionKind, Segment, SegmentKind, Symbol, SymbolBinding, SymbolKind,
 };
+pub use debuginfo::{DebugInfo, DebugSource};
 pub use fragment::{Fragment, FragmentSet, LevelInfo};
 pub use intern::{Interner, Label, Sym};
 pub use linkmap::{InputSection, LinkMap, MemoryRegion, ObjectFile, OutputSection};

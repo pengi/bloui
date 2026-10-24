@@ -24,6 +24,7 @@ toml = "1.1"
 gtk = { version = "0.10.3", package = "gtk4", features = ["v4_14"], optional = true }
 rustc-demangle = "0.1"
 cpp_demangle = "0.5"
+gimli = { version = "0.32", default-features = false, features = ["read", "std"] }
 
 [[bin]]
 name = "bloui"

@@ -15,6 +15,7 @@ Loads a binary and adds all its bytes.
 | `name` | file name | name shown in the tree (`file` dimension) |
 | `reader` | `auto` | `auto` or `elf` |
 | `map` | `auto` | `auto`: attach `fw.map` or `fw.elf.map` next to `fw.elf` if there is one; `off` |
+| `debug` | `auto` | `auto`: use the file's DWARF debug info (for the DWARF dimensions); `off` |
 
 Levels split before this stage are applied to the new file's bytes too.
 Filters before it are not.
