@@ -78,7 +78,7 @@ impl TreemapView {
             bounds,
             &LayoutOptions::default(),
         );
-        let colors = self.color.scheme(key.metric);
+        let colors = self.color.scheme(tree, key.metric);
         let image = render::cushion::render(&map, tree, &colors, width, height, &self.cushion);
         self.cache = Some((key, map, Arc::new(image)));
     }

@@ -515,7 +515,7 @@ fn treemap(
         bounds,
         &LayoutOptions::default(),
     );
-    let colors = color_by.scheme(sort);
+    let colors = color_by.scheme(tree, sort);
     let img = render::cushion::render(&map, tree, &colors, w, h, &Default::default());
     img.write_png(path).map_err(|e| e.to_string())
 }

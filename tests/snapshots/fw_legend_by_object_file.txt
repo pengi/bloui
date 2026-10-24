@@ -13,7 +13,7 @@ Legend (load):
   #3b6fe0       162   9.7%  vectors.o
   #2baeb8        64   3.8%  startup.o
   #7da82f        48   2.9%  libgcc.a(_aeabi_uldivmod.o)
-  #e0b02a        48   2.9%  libhal.a(gpio.o)
-  #3b6fe0        16   1.0%  libhal.a(clock.o)
-  #3b6fe0         4   0.2%  libgcc.a(_dvmd_tls.o)
+  #9b52d1        48   2.9%  libhal.a(gpio.o)
+  #d9483b        16   1.0%  libhal.a(clock.o)
+  #d14f9b         4   0.2%  libgcc.a(_dvmd_tls.o)
   #9a9a9a         2   0.1%  [fill]

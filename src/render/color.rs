@@ -56,26 +56,64 @@ pub fn stable_hash(s: &str) -> u64 {
     })
 }
 
-pub fn label_color(name: &str) -> Rgb {
-    PALETTE[(stable_hash(name) % PALETTE.len() as u64) as usize]
+fn palette_slot(name: &str) -> usize {
+    (stable_hash(name) % PALETTE.len() as u64) as usize
 }
 
-/// How a label is painted: `[free]` flat light grey, other bracketed
-/// labels (and no label) grey, the rest from the palette.
-pub fn paint_label(label: Option<&str>) -> Paint {
-    match label {
-        Some("[free]") => Paint {
-            color: FREE,
-            shaded: false,
-        },
-        Some(name) if !name.starts_with('[') => Paint {
-            color: label_color(name),
-            shaded: true,
-        },
-        _ => Paint {
-            color: PLACEHOLDER,
-            shaded: true,
-        },
+/// A label's own color, from its hash.
+pub fn label_color(name: &str) -> Rgb {
+    PALETTE[palette_slot(name)]
+}
+
+/// The colors of the labels in a tree. Biggest first, each label takes
+/// its own (hashed) color if no bigger label has it, else the next free
+/// one; so up to `PALETTE.len()` labels get distinct colors, and a label
+/// keeps its color across pipeline changes unless a bigger one takes it.
+#[derive(Clone, Debug, Default)]
+pub struct ColorMap {
+    colors: HashMap<Arc<str>, Rgb>,
+}
+
+impl ColorMap {
+    /// The colors for `color_by` over the whole tree, so zooming doesn't
+    /// change them.
+    pub fn new(tree: &AnalysisTree, color_by: &ColorBy, metric: Metric) -> Self {
+        let labels = collect(tree, color_by, AnalysisTree::ROOT, metric);
+        let mut taken = [false; PALETTE.len()];
+        let mut colors = HashMap::new();
+        for (label, _, _) in labels.into_iter().filter(|(l, _, _)| !l.starts_with('[')) {
+            let own = palette_slot(&label);
+            let slot = (0..PALETTE.len())
+                .map(|i| (own + i) % PALETTE.len())
+                .find(|&s| !taken[s])
+                .unwrap_or(own);
+            taken[slot] = true;
+            colors.insert(label, PALETTE[slot]);
+        }
+        ColorMap { colors }
+    }
+
+    /// How a label is painted: `[free]` flat light grey, other bracketed
+    /// labels (and no label) grey, the rest in their color.
+    pub fn paint(&self, label: Option<&str>) -> Paint {
+        match label {
+            Some("[free]") => Paint {
+                color: FREE,
+                shaded: false,
+            },
+            Some(name) if !name.starts_with('[') => Paint {
+                color: self
+                    .colors
+                    .get(name)
+                    .copied()
+                    .unwrap_or_else(|| label_color(name)),
+                shaded: true,
+            },
+            _ => Paint {
+                color: PLACEHOLDER,
+                shaded: true,
+            },
+        }
     }
 }
 
@@ -105,7 +143,7 @@ pub struct LevelColors {
 
 impl ColorScheme for LevelColors {
     fn paint(&self, tree: &AnalysisTree, node: NodeId) -> Paint {
-        paint_label(level_label(tree, node, self.level).as_deref())
+        ColorMap::default().paint(level_label(tree, node, self.level).as_deref())
     }
 }
 
@@ -142,10 +180,11 @@ impl ColorBy {
         }
     }
 
-    pub fn scheme(&self, metric: Metric) -> ColorByScheme<'_> {
+    pub fn scheme(&self, tree: &AnalysisTree, metric: Metric) -> ColorByScheme<'_> {
         ColorByScheme {
             color_by: self,
             metric,
+            map: ColorMap::new(tree, self, metric),
         }
     }
 }
@@ -153,11 +192,13 @@ impl ColorBy {
 pub struct ColorByScheme<'a> {
     color_by: &'a ColorBy,
     metric: Metric,
+    map: ColorMap,
 }
 
 impl ColorScheme for ColorByScheme<'_> {
     fn paint(&self, tree: &AnalysisTree, node: NodeId) -> Paint {
-        paint_label(self.color_by.label_of(tree, node, self.metric).as_deref())
+        self.map
+            .paint(self.color_by.label_of(tree, node, self.metric).as_deref())
     }
 }
 
@@ -182,6 +223,37 @@ pub fn legend(
     metric: Metric,
     max: usize,
 ) -> Vec<LegendEntry> {
+    let map = ColorMap::new(tree, color_by, metric);
+    let mut entries: Vec<LegendEntry> = collect(tree, color_by, root, metric)
+        .into_iter()
+        .map(|(label, size, node)| LegendEntry {
+            color: map.paint(Some(&label)).color,
+            label,
+            size,
+            node,
+        })
+        .collect();
+    if entries.len() > max {
+        let rest: u64 = entries[max..].iter().map(|e| e.size).sum();
+        entries.truncate(max);
+        entries.push(LegendEntry {
+            label: OTHER.into(),
+            color: PLACEHOLDER,
+            size: rest,
+            node: root,
+        });
+    }
+    entries
+}
+
+/// The labels under `root` with their sizes and biggest nodes, biggest
+/// first.
+fn collect(
+    tree: &AnalysisTree,
+    color_by: &ColorBy,
+    root: NodeId,
+    metric: Metric,
+) -> Vec<(Arc<str>, u64, NodeId)> {
     // The topmost nodes with each label: their sizes (for levels) and
     // the biggest of them. With another dimension, a node's label only
     // says which label wins there, so the zoom root itself isn't one.
@@ -206,43 +278,23 @@ pub fn legend(
         let own = if n == root && !by_level { None } else { label };
         stack.extend(tree.children(n).iter().map(|&c| (c, own.clone())));
     }
-    let mut entries: Vec<LegendEntry> = found
+    let mut entries: Vec<(Arc<str>, u64, NodeId)> = found
         .into_iter()
-        .map(|(label, (size, node, _))| LegendEntry {
-            color: paint_label(Some(&label)).color,
-            label,
-            size,
-            node,
-        })
+        .map(|(label, (size, node, _))| (label, size, node))
         .collect();
     // Another dimension: exact sizes per label, not just where it wins.
     if let ColorBy::Labels(labels) = color_by {
         for e in &mut entries {
-            e.size = 0;
+            e.1 = 0;
         }
         for (label, sizes) in labels.labels(root) {
-            match entries.iter_mut().find(|e| e.label == *label) {
-                Some(e) => e.size = sizes.get(metric),
-                None => entries.push(LegendEntry {
-                    label: label.clone(),
-                    color: paint_label(Some(label)).color,
-                    size: sizes.get(metric),
-                    node: root,
-                }),
+            match entries.iter_mut().find(|e| e.0 == *label) {
+                Some(e) => e.1 = sizes.get(metric),
+                None => entries.push((label.clone(), sizes.get(metric), root)),
             }
         }
     }
-    entries.retain(|e| e.size > 0);
-    entries.sort_by(|a, b| b.size.cmp(&a.size).then_with(|| a.label.cmp(&b.label)));
-    if entries.len() > max {
-        let rest: u64 = entries[max..].iter().map(|e| e.size).sum();
-        entries.truncate(max);
-        entries.push(LegendEntry {
-            label: OTHER.into(),
-            color: PLACEHOLDER,
-            size: rest,
-            node: root,
-        });
-    }
+    entries.retain(|e| e.1 > 0);
+    entries.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
     entries
 }

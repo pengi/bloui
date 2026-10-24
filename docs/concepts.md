@@ -131,7 +131,11 @@ without borders.
   default) or *slice and dice* (alternating rows and columns per level).
 - Tiles smaller than a pixel are folded into their parent.
 - Colors are taken from the label at one tree level (by default the first
-  level) and hashed, so a label keeps its color when the pipeline changes.
+  level). Each label has its own color from a hash of its name, so it
+  keeps it when the pipeline changes; but labels are colored biggest
+  first, and one whose color a bigger label already has takes the next
+  free one, so the 12 biggest labels always differ. Zooming doesn't
+  change colors.
   Bracketed labels such as `[no symbol]` are grey; free space is flat light
   grey, so how full a memory region is shows at a glance.
 

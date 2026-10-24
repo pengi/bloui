@@ -330,3 +330,31 @@ fn legend_highlight_outlines_tiles() {
     assert_eq!(outlines.len(), 1);
     assert_eq!(&*t.node(outlines[0].0.unwrap()).name, "FLASH");
 }
+
+#[test]
+fn colors_are_spread() {
+    use render::ColorScheme;
+    use render::color::{ColorBy, ColorMap, PALETTE};
+    use render::legend;
+    // Symbols of the Rust firmware: far more than 12 labels.
+    let t = tree(vec![open("rust/fw.elf"), split("symbol")], Metric::Load);
+    let by = ColorBy::Level(0);
+    let l = legend(&t, &by, AnalysisTree::ROOT, Metric::Load, 100);
+    let named: Vec<_> = l.iter().filter(|e| !e.label.starts_with('[')).collect();
+    assert!(named.len() > PALETTE.len());
+    // The biggest 12 named labels all differ.
+    let mut first: Vec<_> = named[..PALETTE.len()].iter().map(|e| e.color).collect();
+    first.sort_by_key(|c| (c.0, c.1, c.2));
+    first.dedup();
+    assert_eq!(first.len(), PALETTE.len());
+    // Tiles are painted like the legend, also when zoomed (the map is of
+    // the whole tree).
+    let map = ColorMap::new(&t, &by, Metric::Load);
+    let scheme = by.scheme(&t, Metric::Load);
+    for e in &named {
+        assert_eq!(scheme.paint(&t, e.node).color, e.color, "{}", e.label);
+        assert_eq!(map.paint(Some(&e.label)).color, e.color);
+    }
+    let sub = legend(&t, &by, named[3].node, Metric::Load, 100);
+    assert_eq!(sub[0].color, named[3].color);
+}
