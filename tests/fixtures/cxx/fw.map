@@ -1,0 +1,238 @@
+
+Discarded input sections
+
+ .text          0x00000000        0x0 build/startup.o
+ .data          0x00000000        0x0 build/startup.o
+ .bss           0x00000000        0x0 build/startup.o
+ .group         0x00000000        0x8 build/main.o
+ .group         0x00000000        0x8 build/main.o
+ .text          0x00000000        0x0 build/main.o
+ .data          0x00000000        0x0 build/main.o
+ .bss           0x00000000        0x0 build/main.o
+ .text._ZN3app6uptimeEv
+                0x00000000       0x14 build/main.o
+ .text.startup._GLOBAL__sub_I__ZN3app4tickEv
+                0x00000000       0x18 build/main.o
+ .init_array    0x00000000        0x4 build/main.o
+ .text          0x00000000        0x0 build/uart.o
+ .data          0x00000000        0x0 build/uart.o
+ .bss           0x00000000        0x0 build/uart.o
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+FLASH            0x08000000         0x00010000         xr
+RAM              0x20000000         0x00004000         xrw
+*default*        0x00000000         0xffffffff
+
+Linker script and memory map
+
+LOAD build/startup.o
+LOAD build/main.o
+LOAD build/uart.o
+LOAD /nix/store/3y7lyg1ykgxhlb9sa5iy0gb8hnshb302-gcc-arm-embedded-15.2.rel1/bin/../lib/gcc/arm-none-eabi/15.2.1/thumb/v7e-m/nofp/libgcc.a
+                0x20004000                        _estack = (ORIGIN (RAM) + LENGTH (RAM))
+                0x00000400                        _stack_size = 0x400
+
+.isr_vector     0x08000000       0x40
+ *(.isr_vector)
+ .isr_vector    0x08000000       0x40 build/startup.o
+
+.text           0x08000040      0x156
+ *(.text .text.*)
+ .text._ZN5board15default_handlerEv
+                0x08000040        0x2 build/startup.o
+                0x08000040                HardFault_Handler
+                0x08000040                board::default_handler()
+ *fill*         0x08000042        0x2 
+ .text.Reset_Handler
+                0x08000044       0x44 build/startup.o
+                0x08000044                Reset_Handler
+ .text._ZN2hw10RingBufferIhLj64EE4pushEh.isra.0
+                0x08000088       0x16 build/main.o
+ .text._ZN2hw10RingBufferImLj16EE4pushEm.isra.0
+                0x0800009e       0x18 build/main.o
+ *fill*         0x080000b6        0x2 
+ .text._ZN3app4tickEv
+                0x080000b8       0x18 build/main.o
+                0x080000b8                app::tick()
+ .text.SysTick_Handler
+                0x080000d0        0x4 build/main.o
+                0x080000d0                SysTick_Handler
+ .text._ZN2hw10RingBufferImLj16EE3popERm
+                0x080000d4       0x1e build/main.o
+                0x080000d4                hw::RingBuffer<unsigned long, 16u>::pop(unsigned long&)
+ .text._ZN2hw10RingBufferIhLj64EE3popERh
+                0x080000f2       0x1e build/main.o
+                0x080000f2                hw::RingBuffer<unsigned char, 64u>::pop(unsigned char&)
+ .text.startup.main
+                0x08000110       0x68 build/main.o
+                0x08000110                main
+ .text._ZN2hw4uart4Port5writeEh
+                0x08000178        0x6 build/uart.o
+                0x08000178                hw::uart::Port::write(unsigned char)
+ .text._ZN2hw4uart4Port5writeEPKc
+                0x0800017e       0x10 build/uart.o
+                0x0800017e                hw::uart::Port::write(char const*)
+ .text._ZN2hw4uart4PortlsEPKc
+                0x0800018e        0x8 build/uart.o
+                0x0800018e                hw::uart::Port::operator<<(char const*)
+ *(.glue_7)
+ .glue_7        0x08000196        0x0 linker stubs
+ *(.glue_7t)
+ .glue_7t       0x08000196        0x0 linker stubs
+
+.vfp11_veneer   0x08000198        0x0
+ .vfp11_veneer  0x08000198        0x0 linker stubs
+
+.v4_bx          0x08000198        0x0
+ .v4_bx         0x08000198        0x0 linker stubs
+
+.iplt           0x08000198        0x0
+ .iplt          0x08000198        0x0 build/startup.o
+
+.rodata         0x08000196       0x26
+                0x08000198                        . = ALIGN (0x4)
+ *fill*         0x08000196        0x2 
+ *(.rodata .rodata.*)
+ .rodata.main.str1.1
+                0x08000198        0x7 build/main.o
+ .rodata._ZN3app12_GLOBAL__N_1L6bannerE
+                0x0800019f       0x1a build/main.o
+                0x080001bc                        . = ALIGN (0x4)
+ *fill*         0x080001b9        0x3 
+
+.rel.dyn        0x080001bc        0x0
+ .rel.iplt      0x080001bc        0x0 build/startup.o
+
+.ARM.exidx
+ *(.ARM.exidx* .gnu.linkonce.armexidx.*)
+
+.data           0x20000000        0x0 load address 0x080001bc
+                0x20000000                        . = ALIGN (0x4)
+                0x20000000                        _sdata = .
+ *(.data .data.*)
+                0x20000000                        . = ALIGN (0x4)
+                0x20000000                        _edata = .
+                0x080001bc                        _sidata = LOADADDR (.data)
+
+.igot.plt       0x20000000        0x0 load address 0x080001bc
+ .igot.plt      0x20000000        0x0 build/startup.o
+
+.bss            0x20000000       0x94 load address 0x080001bc
+                0x20000000                        . = ALIGN (0x4)
+                0x20000000                        _sbss = .
+ *(.bss .bss.* COMMON)
+ .bss._ZN3app12_GLOBAL__N_1L6eventsE
+                0x20000000       0x48 build/main.o
+ .bss._ZN3app12_GLOBAL__N_1L2rxE
+                0x20000048       0x48 build/main.o
+ .bss._ZN3app12_GLOBAL__N_1L5ticksE
+                0x20000090        0x4 build/main.o
+                0x20000094                        . = ALIGN (0x4)
+                0x20000094                        _ebss = .
+
+.stack          0x20000094      0x404 load address 0x080001bc
+                0x20000098                        . = ALIGN (0x8)
+ *fill*         0x20000094        0x4 
+                0x20000498                        . = (. + _stack_size)
+ *fill*         0x20000098      0x400 
+OUTPUT(fw.elf elf32-littlearm)
+LOAD linker stubs
+
+.debug_info     0x00000000      0xae9
+ .debug_info    0x00000000      0x1a1 build/startup.o
+ .debug_info    0x000001a1      0x6e6 build/main.o
+ .debug_info    0x00000887      0x262 build/uart.o
+
+.debug_abbrev   0x00000000      0x6b8
+ .debug_abbrev  0x00000000      0x128 build/startup.o
+ .debug_abbrev  0x00000128      0x3df build/main.o
+ .debug_abbrev  0x00000507      0x1b1 build/uart.o
+
+.debug_loclists
+                0x00000000      0x159
+ .debug_loclists
+                0x00000000       0x78 build/startup.o
+ .debug_loclists
+                0x00000078       0x7c build/main.o
+ .debug_loclists
+                0x000000f4       0x65 build/uart.o
+
+.debug_aranges  0x00000000       0xb8
+ .debug_aranges
+                0x00000000       0x28 build/startup.o
+ .debug_aranges
+                0x00000028       0x60 build/main.o
+ .debug_aranges
+                0x00000088       0x30 build/uart.o
+
+.debug_rnglists
+                0x00000000       0x93
+ .debug_rnglists
+                0x00000000       0x31 build/startup.o
+ .debug_rnglists
+                0x00000031       0x43 build/main.o
+ .debug_rnglists
+                0x00000074       0x1f build/uart.o
+
+.debug_line     0x00000000      0x4bd
+ .debug_line    0x00000000      0x121 build/startup.o
+ .debug_line    0x00000121      0x279 build/main.o
+ .debug_line    0x0000039a      0x123 build/uart.o
+
+.debug_str      0x00000000      0x498
+ .debug_str     0x00000000      0x498 build/startup.o
+                                0x210 (size before relaxing)
+ .debug_str     0x00000498        0x0 build/main.o
+                                0x449 (size before relaxing)
+ .debug_str     0x00000498        0x0 build/uart.o
+                                0x22a (size before relaxing)
+
+.comment        0x00000000       0x45
+ .comment       0x00000000       0x45 build/startup.o
+                                 0x46 (size before relaxing)
+ .comment       0x00000045        0x0 build/main.o
+                                 0x46 (size before relaxing)
+ .comment       0x00000045        0x0 build/uart.o
+                                 0x46 (size before relaxing)
+
+.ARM.attributes
+                0x00000000       0x2e
+ .ARM.attributes
+                0x00000000       0x2e build/startup.o
+ .ARM.attributes
+                0x0000002e       0x2e build/main.o
+ .ARM.attributes
+                0x0000005c       0x2e build/uart.o
+
+.debug_frame    0x00000000      0x138
+ .debug_frame   0x00000000       0x38 build/startup.o
+ .debug_frame   0x00000038       0xb8 build/main.o
+ .debug_frame   0x000000f0       0x48 build/uart.o
+
+Cross Reference Table
+
+Symbol                                            File
+HardFault_Handler                                 build/startup.o
+Reset_Handler                                     build/startup.o
+SysTick_Handler                                   build/main.o
+                                                  build/startup.o
+_ebss                                             build/startup.o
+_edata                                            build/startup.o
+_estack                                           build/startup.o
+_sbss                                             build/startup.o
+_sdata                                            build/startup.o
+_sidata                                           build/startup.o
+app::tick()                                       build/main.o
+app::uptime()                                     build/main.o
+board::default_handler()                          build/startup.o
+hw::RingBuffer<unsigned char, 64u>::pop(unsigned char&) build/main.o
+hw::RingBuffer<unsigned long, 16u>::pop(unsigned long&) build/main.o
+hw::uart::Port::operator<<(char const*)           build/uart.o
+                                                  build/main.o
+hw::uart::Port::write(char const*)                build/uart.o
+hw::uart::Port::write(unsigned char)              build/uart.o
+                                                  build/main.o
+main                                              build/main.o
+                                                  build/startup.o

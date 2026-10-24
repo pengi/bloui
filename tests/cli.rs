@@ -220,3 +220,41 @@ fn errors() {
         &["-i", "cortexm/fw.elf", "-S", "split dimension=nope"],
     );
 }
+
+#[test]
+fn cxx_flash_symbols() {
+    cli(
+        "cxx_flash_symbols",
+        &[
+            "-i",
+            "cxx/fw.elf",
+            "-k",
+            "load",
+            "-s",
+            "symbol",
+            "-m",
+            "load",
+            "--bytes",
+        ],
+    );
+}
+
+#[test]
+fn rust_regions_symbols() {
+    cli(
+        "rust_regions_symbols",
+        &[
+            "-i",
+            "rust/fw.elf",
+            "-s",
+            "memory-region",
+            "--free",
+            "-s",
+            "symbol",
+            "-d",
+            "2",
+            "-n",
+            "8",
+        ],
+    );
+}

@@ -91,14 +91,18 @@ Keeps bytes by where they are.
 | `segment` | loadable segment, `LOAD #<phdr index> [RWX]`, by runtime address | `[no segment]` |
 | `section` | output section; also `[ELF header]`, `[program headers]`, `[section headers]` | `[no section]` (padding) |
 | `category` | `code`, `rodata`, `data`, `bss`, `unwind`, `debug`, `symtab`, `reloc`, `meta`, `headers` | `[unmapped]` |
-| `symbol` | symbol name; the smallest symbol wins where symbols overlap | `[<section>]`, or `[no symbol]` with `fallback=none` |
+| `symbol` | symbol name, demangled (Rust, C++); the smallest symbol wins where symbols overlap | `[<section>]`, or `[no symbol]` with `fallback=none` |
 | `memory-region` | memory region, from the linker map or a `memory-regions` stage | `[no region]` |
 | `object-file` | object file from the linker map; archive members as `libhal.a` › `gpio.o` | `[<section>]`, `[fill]` for padding |
 | `input-section` | input section from the linker map, like `.text.uart_init` | `[<section>]`, `[fill]` for padding |
 
 Parameters:
 
-- `symbol`: `fallback` = `section` or `none`.
+- `symbol`: `demangle` = `auto` (Rust legacy and v0, C++ Itanium) or
+  `off` (raw names); `hash` = `strip` (drop Rust hashes like
+  `::h0123…` and crate disambiguators) or `keep`; `fallback` = `section`
+  or `none`. C++ template arguments are shown as `cpp_demangle` prints
+  them (`(unsigned int)64` where `c++filt` prints `64u`).
 - `memory-region`: `by` = `auto` (load address for bytes with content, so
   `.data` is in flash; runtime address otherwise), `vma` or `lma`.
 - `object-file`: `archives` = `nest` (`libhal.a` › `gpio.o`), `flat`

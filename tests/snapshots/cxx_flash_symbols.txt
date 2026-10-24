@@ -1,0 +1,18 @@
+     FILE    MEMORY      LOAD      %L  symbol
+      444       444       444  100.0%  TOTAL
+      104       104       104   23.4%  ├─ main
+       68        68        68   15.3%  ├─ Reset_Handler
+       64        64        64   14.4%  ├─ vector_table
+       30        30        30    6.8%  ├─ hw::RingBuffer<unsigned char, (unsigned int)64>::pop(unsigned char&)
+       30        30        30    6.8%  ├─ hw::RingBuffer<unsigned long, (unsigned int)16>::pop(unsigned long&)
+       26        26        26    5.9%  ├─ app::(anonymous namespace)::banner
+       24        24        24    5.4%  ├─ app::tick()
+       24        24        24    5.4%  ├─ hw::RingBuffer<unsigned long, (unsigned int)16>::push(unsigned long) [clone .isra.0]
+       22        22        22    5.0%  ├─ hw::RingBuffer<unsigned char, (unsigned int)64>::push(unsigned char) [clone .isra.0]
+       16        16        16    3.6%  ├─ hw::uart::Port::write(char const*)
+       12        12        12    2.7%  ├─ [.rodata]
+        8         8         8    1.8%  ├─ hw::uart::Port::operator<<(char const*)
+        6         6         6    1.4%  ├─ hw::uart::Port::write(unsigned char)
+        4         4         4    0.9%  ├─ SysTick_Handler
+        4         4         4    0.9%  ├─ [.text]
+        2         2         2    0.5%  └─ board::default_handler()

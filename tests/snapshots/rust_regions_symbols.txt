@@ -1,0 +1,28 @@
+     FILE    MEMORY      LOAD      %M  memory region › symbol
+    615Ki    80.0Ki    7.49Ki  100.0%  TOTAL
+   7.49Ki    64.0Ki    7.49Ki   80.0%  ├─ FLASH
+        0    56.5Ki         0   70.6%  │  ├─ [free]
+   3.71Ki    3.71Ki    3.71Ki    4.6%  │  ├─ [.rodata]
+   1.23Ki    1.23Ki    1.23Ki    1.5%  │  ├─ core::str::count::do_count_chars
+      614       614       614    0.7%  │  ├─ <core::fmt::Formatter>::pad_integral
+      552       552       552    0.7%  │  ├─ core::str::converts::from_utf8
+      268       268       268    0.3%  │  ├─ core::fmt::write
+      234       234       234    0.3%  │  ├─ <u32 as core::fmt::Display>::fmt
+      152       152       152    0.2%  │  ├─ core::fmt::Write::write_char
+      798       798       798    1.0%  │  └─ [17 more]
+        0    16.0Ki         0   20.0%  ├─ RAM
+        0    14.8Ki         0   18.6%  │  ├─ [free]
+        0    1.00Ki         0    1.3%  │  ├─ [.stack]
+        0        72         0    0.1%  │  ├─ fw::EVENTS
+        0        72         0    0.1%  │  ├─ fw::RX
+        0         4         0    0.0%  │  └─ fw::TICKS.0
+    608Ki         0         0    0.0%  └─ [no region]
+       54         0         0    0.0%     ├─ [.ARM.attributes]
+       44         0         0    0.0%     ├─ [.comment]
+   1.55Ki         0         0    0.0%     ├─ [.debug_abbrev]
+   4.19Ki         0         0    0.0%     ├─ [.debug_aranges]
+   17.1Ki         0         0    0.0%     ├─ [.debug_frame]
+    137Ki         0         0    0.0%     ├─ [.debug_info]
+    126Ki         0         0    0.0%     ├─ [.debug_line]
+   1.51Ki         0         0    0.0%     ├─ [.debug_loc]
+    320Ki         0         0    0.0%     └─ [9 more]

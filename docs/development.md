@@ -43,6 +43,7 @@ src/
   param/       parameter schemas and values (stage/dimension settings)
   reader/      Reader trait; elf/ is the only format-specific code
   linkmap/     linker map parsers (GNU ld) and the map/binary check
+  symname/     symbol names: demangling (Rust, C++), splitting into paths
   dimension/   Dimension trait; builtin/ has file, segment, section,
                category, symbol, memory-region, object-file, input-section
   pipeline/    Stage trait, PipelineCtx (interner and caches), configs;
@@ -66,7 +67,7 @@ src/
   bin/bloui-cli/   text frontend
 ```
 
-Dependencies go one way: `model`, `param` → `reader`, `dimension` →
+Dependencies go one way: `model`, `param`, `symname` → `reader`, `dimension` →
 `engine`, `pipeline` → `registry`, `project` → binaries.
 
 ### Adding a dimension or stage
@@ -118,6 +119,13 @@ and the built files, so tests don't need the toolchains:
   with a static library (`libhal.a`), libgcc's 64-bit division, and
   startup code in assembly without debug info. `build.sh` rebuilds `fw.elf`
   and `fw.map`.
+- `cxx/`: the same kind of firmware in C++ (`arm-none-eabi-g++`):
+  namespaces, an anonymous namespace, a class template with two instances,
+  an operator, a weak alias, and `.isra` clones.
+- `rust/`: a `#![no_std]` Rust firmware for `thumbv7em-none-eabihf`, built
+  with plain `rustc` and linked by `arm-none-eabi-gcc` with GNU ld, so the
+  map is a GNU ld map. The app crate has legacy-mangled names and `core`
+  v0-mangled ones; `core` brings its DWARF along, hence the file size.
 - `host/`: a small x86-64 PIE built with `gcc`. `build.sh` rebuilds it.
 
 After rebuilding a fixture, update the numbers in the tests and the
