@@ -9,7 +9,9 @@ pub use history::History;
 use crate::Result;
 use crate::dimension::Dimension;
 use crate::engine::{ResolvedLabels, translate};
-use crate::model::{Availability, Binary, BinaryId, Fragment, FragmentSet, Interner, Label};
+use crate::model::{
+    Availability, Binary, BinaryId, Fragment, FragmentSet, Interner, Label, Metric,
+};
 use crate::param::{ParamSpec, ParamValues};
 use crate::registry::Registry;
 use serde::{Deserialize, Serialize};
@@ -91,9 +93,34 @@ pub struct PipelineCtx {
     notes: Vec<String>,
     /// Files the running stage read (or tried to).
     read: Vec<PathBuf>,
+    /// The metric the result is shown in; see [`PipelineCtx::metric`].
+    metric: Metric,
+    /// Whether the running stage asked for the metric.
+    metric_read: bool,
 }
 
 impl PipelineCtx {
+    /// The metric the result will be shown in (`-m` on the command line,
+    /// the view's metric in the GUI), for stages with a "the view's
+    /// metric" option. The runner reruns a stage that asked for it when the
+    /// metric changes.
+    pub fn metric(&mut self) -> Metric {
+        self.metric_read = true;
+        self.metric
+    }
+
+    pub fn set_metric(&mut self, metric: Metric) {
+        self.metric = metric;
+    }
+
+    pub(crate) fn current_metric(&self) -> Metric {
+        self.metric
+    }
+
+    pub(crate) fn take_metric_read(&mut self) -> bool {
+        std::mem::take(&mut self.metric_read)
+    }
+
     pub fn new(registry: Arc<Registry>) -> Self {
         PipelineCtx {
             registry,
@@ -104,6 +131,8 @@ impl PipelineCtx {
             derived: HashMap::new(),
             notes: Vec::new(),
             read: Vec::new(),
+            metric: Metric::default(),
+            metric_read: false,
         }
     }
 

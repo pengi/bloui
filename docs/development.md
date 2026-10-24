@@ -99,7 +99,10 @@ and its runtime range (the latter covers NOBITS sections like `.bss`).
 A stage that changes a binary (attaches something) makes a copy with
 `Binary::derive` through `PipelineCtx::derive_binary`, which caches it so
 reruns keep the same binary and its cached labels. Stages report with
-`ctx.note()` and `ctx.warn()`.
+`ctx.note()` and `ctx.warn()`. A stage that depends on the metric the
+result is shown in reads it with `ctx.metric()`; the runner then reruns it
+(and the stages after it) when the metric changes, and the GUI does when
+its Metric changes.
 
 ## Tests
 

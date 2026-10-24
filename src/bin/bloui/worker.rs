@@ -50,6 +50,7 @@ impl Worker {
                 runner.invalidate();
             }
             runner.ctx.base_dir = base_dir;
+            runner.ctx.set_metric(metric);
             let result = runner.run(&pipeline);
             let tree = AnalysisTree::build(&result.state, &runner.ctx.interner, metric);
             let colors = color.map(|dim| {

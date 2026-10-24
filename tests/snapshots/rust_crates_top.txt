@@ -1,0 +1,35 @@
+Pipeline (load):
+   1. open fw.elf                                      0 → 7.49Ki      +7.49Ki  ok
+      attached ./rust/fw.map
+   2. keep load                                   7.49Ki → 7.49Ki           +0  ok
+   3. split by symbol-path (depth=1)              7.49Ki → 7.49Ki           +0  ok
+   4. split by symbol                             7.49Ki → 7.49Ki           +0  ok
+   5. group last level beyond top 3 as [other]    7.49Ki → 7.49Ki           +0  ok
+      11 labels grouped as [other]
+
+     FILE    MEMORY      LOAD      %L  symbol path › symbol
+   7.49Ki    7.49Ki    7.49Ki  100.0%  TOTAL
+   3.71Ki    3.71Ki    3.71Ki   49.5%  ├─ [.rodata]
+   3.71Ki    3.71Ki    3.71Ki   49.5%  │  └─ [.rodata]
+   3.16Ki    3.16Ki    3.16Ki   42.2%  ├─ core
+   1.23Ki    1.23Ki    1.23Ki   16.4%  │  ├─ core::str::count::do_count_chars
+      816       816       816   10.6%  │  ├─ [other]
+      614       614       614    8.0%  │  ├─ <core::fmt::Formatter>::pad_integral
+      552       552       552    7.2%  │  └─ core::str::converts::from_utf8
+      512       512       512    6.7%  ├─ fw
+      150       150       150    2.0%  │  ├─ fw::main
+      126       126       126    1.6%  │  ├─ [other]
+      120       120       120    1.6%  │  ├─ fw::queue::Ring<T,_>::pop
+      116       116       116    1.5%  │  └─ fw::queue::Ring<T,_>::push
+       78        78        78    1.0%  ├─ Reset_Handler
+       78        78        78    1.0%  │  └─ Reset_Handler
+       26        26        26    0.3%  ├─ SysTick_Handler
+       26        26        26    0.3%  │  └─ SysTick_Handler
+        8         8         8    0.1%  ├─ [.ARM.exidx]
+        8         8         8    0.1%  │  └─ [.ARM.exidx]
+        6         6         6    0.1%  ├─ __rustc
+        6         6         6    0.1%  │  └─ __rustc::rust_begin_unwind
+        4         4         4    0.1%  ├─ [.text]
+        4         4         4    0.1%  │  └─ [.text]
+        2         2         2    0.0%  └─ [no symbol]
+        2         2         2    0.0%     └─ [no symbol]

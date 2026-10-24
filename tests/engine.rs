@@ -265,6 +265,24 @@ fn stage_summaries() {
         )),
         "relabel last level: ^a → b, +1 more"
     );
+    assert_eq!(
+        sum(&stage(
+            "group-small",
+            &[("top", text("20")), ("min-size", text("1K"))]
+        )),
+        "group last level < 1.00Ki or beyond top 20 as [other]"
+    );
+    assert_eq!(
+        sum(&stage("flatten", &[("level", text("section"))])),
+        "drop section"
+    );
+    assert_eq!(
+        sum(&stage(
+            "flatten",
+            &[("mode", text("depth")), ("depth", text("2"))]
+        )),
+        "cut last level to depth 2"
+    );
     assert_eq!(sum(&stage("nope", &[])), "nope");
     assert_eq!(sum(&stage("split", &[("x", text("y"))])), "split (invalid)");
 }

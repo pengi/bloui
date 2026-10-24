@@ -4,7 +4,9 @@
 mod attach;
 mod filter_label;
 mod filter_space;
+mod flatten;
 mod free_space;
+mod group_small;
 mod open_file;
 mod relabel;
 mod split;
@@ -22,5 +24,7 @@ pub fn all() -> Vec<Box<dyn StageFactory>> {
         Box::new(attach::MemoryRegions),
         Box::new(free_space::FreeSpace),
         Box::new(relabel::Relabel),
+        Box::new(group_small::GroupSmall),
+        Box::new(flatten::Flatten),
     ]
 }

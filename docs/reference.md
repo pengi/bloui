@@ -95,6 +95,34 @@ one.
 | `level` | last | level name or index |
 | `rules` | | the rules |
 
+### `group-small` (transform)
+
+Within each parent, merges a level's small labels into one (`[other]`).
+A label is kept only if it passes every limit that is set. `[free]` is
+never grouped, and neither is a single small label (that would only hide
+its name). Path labels are grouped whole. Inputs and free space added
+after this stage are not grouped.
+
+| Parameter | Default | Meaning |
+|-----------|---------|---------|
+| `level` | last | level name or index |
+| `min-size` | `0` | group labels smaller than this (`1K`); 0 for no limit |
+| `min-percent` | `0` | group labels smaller than this share of their parent, 0–100 |
+| `top` | `0` | keep at most this many labels per parent, the biggest; 0 for no limit |
+| `metric` | `view` | sizes by `file`, `memory`, `load`, or `view`: the metric the result is shown in (`-m`, or the GUI's Metric), so the stage reruns when that changes |
+| `label` | `[other]` | the group's label |
+
+### `flatten` (transform)
+
+Drops a tree level, or cuts its path labels to a depth
+(`libhal.a` › `gpio.o` → `libhal.a`). Later inputs get cut labels too.
+
+| Parameter | Default | Meaning |
+|-----------|---------|---------|
+| `level` | last | level name or index |
+| `mode` | `drop` | `drop` the level, or `depth` |
+| `depth` | `1` | path parts to keep, with `mode=depth` |
+
 ## Dimensions
 
 | Id | Labels | Unattributed bytes |

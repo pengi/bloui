@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 //! Running the stages, with a per-stage cache.
 
-use crate::model::Sizes;
+use crate::model::{Metric, Sizes};
 use crate::pipeline::{Pipeline, PipelineCtx, PipelineState, StageConfig};
 use crate::registry::Registry;
 use std::path::PathBuf;
@@ -43,6 +43,8 @@ pub struct StageReport {
     pub notes: Vec<String>,
     /// Files the stage read (or tried to): inputs, linker maps.
     pub files: Vec<PathBuf>,
+    /// Whether the stage depends on the metric the result is shown in.
+    pub uses_metric: bool,
 }
 
 pub struct RunResult {
@@ -76,6 +78,8 @@ impl RunResult {
 
 struct Cached {
     config: StageConfig,
+    /// The metric, if the stage used it.
+    metric: Option<Metric>,
     state: Arc<PipelineState>,
     report: StageReport,
 }
@@ -112,7 +116,9 @@ impl Runner {
             .cache
             .iter()
             .zip(&pipeline.stages)
-            .take_while(|(c, s)| c.config == **s)
+            .take_while(|(c, s)| {
+                c.config == **s && c.metric.is_none_or(|m| m == self.ctx.current_metric())
+            })
             .count();
         self.cache.truncate(keep);
         let mut state = self
@@ -124,6 +130,7 @@ impl Runner {
             state = next;
             self.cache.push(Cached {
                 config: config.clone(),
+                metric: report.uses_metric.then(|| self.ctx.current_metric()),
                 state: state.clone(),
                 report,
             });
@@ -157,6 +164,7 @@ impl Runner {
             },
             notes: Vec::new(),
             files: Vec::new(),
+            uses_metric: false,
         };
         if !config.enabled {
             return (input, pass(StageStatus::Disabled));
@@ -171,11 +179,13 @@ impl Runner {
         let result = stage.apply(&mut self.ctx, (*input).clone());
         let notes = self.ctx.take_notes();
         let files = self.ctx.take_read_files();
+        let uses_metric = self.ctx.take_metric_read();
         match result {
             Ok(out) => {
                 let report = StageReport {
                     notes,
                     files,
+                    uses_metric,
                     status: StageStatus::Ok,
                     stats: StageStats {
                         input: in_total,
@@ -190,6 +200,7 @@ impl Runner {
                 let mut report = pass(StageStatus::Failed(e.to_string()));
                 report.notes = notes;
                 report.files = files;
+                report.uses_metric = uses_metric;
                 (input, report)
             }
         }

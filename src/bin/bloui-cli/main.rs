@@ -208,6 +208,7 @@ fn run(cli: &Cli, matches: &ArgMatches) -> Result<ExitCode, String> {
 
     let mut runner = Runner::new(registry.clone());
     runner.ctx.base_dir = base_dir;
+    runner.ctx.set_metric(sort);
     let result = runner.run(&pipeline);
     let mut failed = false;
     for (i, report) in result.reports.iter().enumerate() {

@@ -353,6 +353,10 @@ impl Window {
         self.metric.connect_selected_notify(move |_| {
             if let Some(this) = weak.upgrade() {
                 this.metric_changed();
+                // Stages like group-small may follow the metric.
+                if this.doc.borrow().reports.iter().any(|r| r.uses_metric) {
+                    this.schedule_run();
+                }
             }
         });
 

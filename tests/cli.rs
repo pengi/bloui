@@ -315,3 +315,25 @@ fn fw_relabel() {
         ],
     );
 }
+
+#[test]
+fn rust_crates_top() {
+    cli(
+        "rust_crates_top",
+        &[
+            "-i",
+            "rust/fw.elf",
+            "-k",
+            "load",
+            "-m",
+            "load",
+            "-s",
+            "symbol-path:depth=1",
+            "-s",
+            "symbol",
+            "-S",
+            "group-small top=3",
+            "--stats",
+        ],
+    );
+}
