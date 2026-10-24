@@ -55,7 +55,7 @@ $ bloui-cli -i fw.elf -k load -s section -s symbol -m load -n 3
 The GUI needs GTK 4.14 or later (`sudo apt install libgtk-4-dev`).
 
 ```sh
-git clone https://github.com/pengi/bloui
+git clone https://github.com/pengi/bloui.git
 cd bloui
 cargo build --release
 target/release/bloui fw.elf          # a linker map fw.map next to it is found
