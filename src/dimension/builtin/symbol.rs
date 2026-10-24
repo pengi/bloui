@@ -62,10 +62,15 @@ impl NameStyle {
     }
 
     pub(crate) fn name<'a>(&self, sym: &'a Symbol) -> std::borrow::Cow<'a, str> {
+        self.show(&sym.name)
+    }
+
+    /// A raw (maybe mangled) name as shown.
+    pub(crate) fn show<'a>(&self, raw: &'a str) -> std::borrow::Cow<'a, str> {
         if self.demangle {
-            symname::demangle(&sym.name, self.keep_hash)
+            symname::demangle(raw, self.keep_hash)
         } else {
-            std::borrow::Cow::Borrowed(&sym.name)
+            std::borrow::Cow::Borrowed(raw)
         }
     }
 }

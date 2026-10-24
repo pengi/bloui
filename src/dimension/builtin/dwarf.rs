@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-only
-//! Dimensions from DWARF debug information: compile unit, source file.
+//! Dimensions from DWARF debug information: compile unit, source file,
+//! function.
 
+use super::symbol::{NameStyle, demangle_params};
 use crate::Result;
 use crate::dimension::{Dimension, DimensionFactory, Labeling};
-use crate::model::debuginfo::{SourceFile, Variable};
+use crate::model::debuginfo::{DebugInfo, Function, Scope, SourceFile, Variable};
 use crate::model::{AddrSpace, Availability, Binary, Interner, Label, Overlap, Span, Sym};
 use crate::param::{ParamSpec, ParamValues};
 use crate::registry::Registry;
@@ -162,6 +164,139 @@ impl Dimension for SourceFiles {
     fn availability(&self, bin: &Binary) -> Availability {
         needs_debug_info(bin)
     }
+}
+
+pub struct FunctionDim;
+
+impl DimensionFactory for FunctionDim {
+    fn id(&self) -> &'static str {
+        "function"
+    }
+    fn name(&self) -> &'static str {
+        "function"
+    }
+    fn description(&self) -> &'static str {
+        "Function from the DWARF debug info, with code inlined into it by the \
+         function it came from; variables by name"
+    }
+    fn params(&self) -> Vec<ParamSpec> {
+        let mut params = vec![ParamSpec::choice(
+            "inlines",
+            "Inlined code",
+            &[
+                (
+                    "inner",
+                    "By the inlined function: whose source the bytes are",
+                ),
+                ("outer", "By the function it is inlined into"),
+                ("chain", "As a path: function › inlined › …"),
+            ],
+        )];
+        params.extend(demangle_params());
+        params
+    }
+    fn create(&self, params: &ParamValues, _registry: &Registry) -> Result<Box<dyn Dimension>> {
+        let inlines = match params.text("inlines") {
+            "outer" => Inlines::Outer,
+            "chain" => Inlines::Chain,
+            _ => Inlines::Inner,
+        };
+        Ok(Box::new(Functions {
+            inlines,
+            names: NameStyle::from_params(params),
+        }))
+    }
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum Inlines {
+    Inner,
+    Outer,
+    Chain,
+}
+
+struct Functions {
+    inlines: Inlines,
+    names: NameStyle,
+}
+
+impl Functions {
+    fn show(&self, f: &Function) -> String {
+        match &f.linkage_name {
+            Some(raw) => self.names.show(raw).into_owned(),
+            None => f.name.clone(),
+        }
+    }
+}
+
+impl Dimension for Functions {
+    fn label(&self, bin: &Binary, interner: &mut Interner) -> Result<Labeling> {
+        let info = crate::debuginfo::get(bin)?;
+        let mut l = new_labeling(bin, interner);
+        let names: Vec<Sym> = info
+            .functions
+            .iter()
+            .map(|f| interner.intern(&self.show(f)))
+            .collect();
+        let mut labels: HashMap<Vec<u32>, Label> = HashMap::new();
+        for (span, chain) in scope_segments(&info) {
+            let key: Vec<u32> = match self.inlines {
+                Inlines::Inner => chain.last().into_iter().copied().collect(),
+                Inlines::Outer => chain.first().into_iter().copied().collect(),
+                Inlines::Chain => chain,
+            };
+            let label = labels
+                .entry(key)
+                .or_insert_with_key(|k| Label::from_path(k.iter().map(|&f| names[f as usize])))
+                .clone();
+            l.push(AddrSpace::Vma, span, label);
+        }
+        for v in &info.variables {
+            if let Some(span) = variable_span(bin, v) {
+                let name = self.show(&Function {
+                    name: v.name.clone(),
+                    linkage_name: v.linkage_name.clone(),
+                });
+                l.push(AddrSpace::Vma, span, Label::single(interner.intern(&name)));
+            }
+        }
+        Ok(l)
+    }
+
+    fn availability(&self, bin: &Binary) -> Availability {
+        needs_debug_info(bin)
+    }
+}
+
+/// The code ranges cut where scopes start and end, each with the
+/// functions of the scopes covering it, outermost first.
+fn scope_segments(info: &DebugInfo) -> Vec<(Span, Vec<u32>)> {
+    let mut scopes: Vec<&Scope> = info.scopes.iter().collect();
+    scopes.sort_by_key(|s| (s.span.start, s.depth));
+    let mut bounds: Vec<u64> = scopes
+        .iter()
+        .flat_map(|s| [s.span.start, s.span.end])
+        .collect();
+    bounds.sort_unstable();
+    bounds.dedup();
+    let mut out = Vec::new();
+    let mut active: Vec<&Scope> = Vec::new();
+    let mut next = 0;
+    for w in bounds.windows(2) {
+        let seg = Span::new(w[0], w[1]);
+        active.retain(|s| s.span.end > seg.start);
+        while next < scopes.len() && scopes[next].span.start <= seg.start {
+            active.push(scopes[next]);
+            next += 1;
+        }
+        if active.is_empty() {
+            continue;
+        }
+        let mut covering: Vec<&Scope> = active.clone();
+        covering.sort_by_key(|s| s.depth);
+        out.push((seg, covering.iter().map(|s| s.function).collect()));
+    }
+    out
 }
 
 fn needs_debug_info(bin: &Binary) -> Availability {

@@ -158,6 +158,7 @@ Drops a tree level, or cuts its path labels to a depth
 | `object-file` | object file from the linker map; archive members as `libhal.a` › `gpio.o` | `[<section>]`, `[fill]` for padding |
 | `compile-unit` | DWARF compile unit: `main.c`, `hal/gpio.c`; Rust units as `crate: path`. Code by the unit's ranges, variables by the unit they are defined in | `[<section>]`, `[no debug info]` |
 | `source-file` | file from the DWARF line table (code inlined from a header is the header's), variables by where they are declared; as a path: `hal` › `gpio.c`, absolute paths under `/` | `[<section>]`, `[no debug info]` |
+| `function` | function from DWARF, demangled from its linkage name; inlined code by the function it came from (`inlines`); variables by name | `[<section>]`, `[no debug info]` |
 | `rules` | another dimension's labels, renamed by [rules](#rules) | the other dimension's, renamed too |
 | `input-section` | input section from the linker map, like `.text.uart_init` | `[<section>]`, `[fill]` for padding |
 
@@ -184,6 +185,11 @@ Parameters:
   or `full`. `source-file`: `lines` = `off` or `on` (a last level
   `:<line>` per source line; still bytes, so it shows which lines cost
   the most).
+- `function`: `inlines` = `inner` (inlined code by the inlined function:
+  whose source the bytes are), `outer` (by the function it is inlined
+  into; like `symbol`, but static functions without a symbol count too)
+  or `chain` (a path: function › inlined › …, the function's own bytes as
+  `[self]`); `demangle`, `hash` as for `symbol`.
 - `rules`: `dimension` = the dimension whose labels are renamed (default
   `symbol`), with its own parameters; `rules`; `unmatched` = `keep` (the
   label as it is) or `other` (`[other]`). Available where that dimension
@@ -196,7 +202,8 @@ Parameters:
 
 `memory-region`, `object-file` and `input-section` are unavailable (the
 stage is skipped) for inputs without a linker map or memory regions;
-`compile-unit` and `source-file` for inputs without DWARF debug info.
+`compile-unit`, `source-file` and `function` for inputs without DWARF
+debug info.
 
 DWARF entries outside the binary's allocated sections are ignored: with
 `--gc-sections`, the debug info of dropped functions stays, at address 0.

@@ -126,7 +126,10 @@ With DWARF debug info (`-g`), bytes can be traced back to the source:
 `compile-unit` (the file given to the compiler: everything it produced,
 code and variables), `source-file` (the file each byte of code comes from
 by the line table, so a `static inline` function or a C++ template from a
-header is counted in the header; with `lines=on`, down to source lines).
+header is counted in the header; with `lines=on`, down to source lines)
+and `function` (the function each byte was written in: code the compiler
+inlined counts for the inlined function, or as a chain under the
+function it was inlined into).
 Code without debug info (assembly built without `-g`, libgcc) keeps its
 section label, like `[.text]`. Debug info is read only when a pipeline
 uses it. It can also come from a separate debug file (see `debug-file`

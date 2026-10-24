@@ -374,3 +374,21 @@ fn cxx_source_files() {
         ],
     );
 }
+
+#[test]
+fn fw_function_chain() {
+    cli(
+        "fw_function_chain",
+        &[
+            "-i",
+            "cortexm/fw.elf",
+            "-k",
+            "load",
+            "-m",
+            "load",
+            "-s",
+            "function:inlines=chain",
+            "--bytes",
+        ],
+    );
+}

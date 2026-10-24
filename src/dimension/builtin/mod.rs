@@ -30,6 +30,7 @@ pub fn all() -> Vec<Box<dyn DimensionFactory>> {
         Box::new(object_file::InputSectionDim),
         Box::new(dwarf::CompileUnitDim),
         Box::new(dwarf::SourceFileDim),
+        Box::new(dwarf::FunctionDim),
         Box::new(rules::RulesDim),
     ]
 }

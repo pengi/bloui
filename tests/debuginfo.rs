@@ -320,3 +320,65 @@ fn debug_file_stage() {
     assert_eq!(errors.len(), 2, "{errors:?}");
     assert!(errors[0].1.contains("doesn't match"), "{errors:?}");
 }
+
+#[test]
+fn functions_and_inlines() {
+    use bloui::model::Metric;
+    let by = |mode: &str| {
+        tree(
+            vec![open(FW), split_with("function", &[("inlines", mode)])],
+            Metric::Load,
+        )
+    };
+    let load = |t: &bloui::engine::AnalysisTree, p: &[&str]| find(t, p).map(|n| n.sizes.load);
+    let symbols = tree(vec![open(FW), split("symbol")], Metric::Load);
+    let (inner, outer, chain) = (by("inner"), by("outer"), by("chain"));
+    for t in [&inner, &outer, &chain] {
+        assert_eq!(t.root().sizes, symbols.root().sizes);
+    }
+    // Outer: whole functions, like the symbol table.
+    for f in ["main", "uart_put_hex", "uart_read", "gpio_toggle"] {
+        assert_eq!(load(&outer, &[f]), load(&symbols, &[f]), "{f}");
+    }
+    // Inner: crc16 is inlined into main, uart_putc into uart_put_hex.
+    let crc16 = load(&inner, &["crc16"]).unwrap();
+    assert!(crc16 > 0);
+    assert_eq!(
+        load(&inner, &["main"]).unwrap() + crc16,
+        load(&outer, &["main"]).unwrap()
+    );
+    // Chain: main › crc16, with main's own bytes as [self].
+    assert_eq!(load(&chain, &["main", "crc16"]), Some(crc16));
+    assert_eq!(load(&chain, &["main", "[self]"]), load(&inner, &["main"]));
+    // Variables by name.
+    assert_eq!(load(&inner, &["crc_table"]), Some(128));
+}
+
+#[test]
+fn functions_demangled_from_dwarf() {
+    use bloui::model::Metric;
+    let t = tree(vec![open("cxx/fw.elf"), split("function")], Metric::Load);
+    // Port::write(unsigned char) is out of line (6 bytes) and inlined
+    // into write(const char*) (6 more).
+    assert_eq!(
+        find(&t, &["hw::uart::Port::write(unsigned char)"]).map(|n| n.sizes.load),
+        Some(12)
+    );
+    let raw = tree(
+        vec![
+            open("cxx/fw.elf"),
+            split_with("function", &[("demangle", "off")]),
+        ],
+        Metric::Load,
+    );
+    assert!(find(&raw, &["_ZN2hw4uart4Port5writeEh"]).is_some());
+    let rust = tree(
+        vec![
+            open("rust/fw.elf"),
+            split_with("function", &[("inlines", "chain")]),
+        ],
+        Metric::Load,
+    );
+    let count = find(&rust, &["core::str::count::do_count_chars"]).unwrap();
+    assert!(!count.children.is_empty());
+}

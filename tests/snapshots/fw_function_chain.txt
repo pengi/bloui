@@ -1,0 +1,27 @@
+     FILE    MEMORY      LOAD      %L  function
+     1668      1668      1668  100.0%  TOTAL
+      902       902       902   54.1%  ├─ [.text]
+      160       160       160    9.6%  ├─ vector_table
+      136       136       136    8.2%  ├─ main
+       74        74        74    4.4%  │  ├─ [self]
+       62        62        62    3.7%  │  └─ crc16
+      128       128       128    7.7%  ├─ crc_table
+       76        76        76    4.6%  ├─ uart_read
+       44        44        44    2.6%  ├─ uart_put_hex
+       34        34        34    2.0%  │  ├─ [self]
+       10        10        10    0.6%  │  └─ uart_putc
+       36        36        36    2.2%  ├─ USART1_IRQHandler
+       28        28        28    1.7%  ├─ gpio_toggle
+       28        28        28    1.7%  ├─ uart_puts
+       20        20        20    1.2%  │  ├─ uart_putc
+        8         8         8    0.5%  │  └─ [self]
+       27        27        27    1.6%  ├─ banner
+       20        20        20    1.2%  ├─ gpio_init
+       20        20        20    1.2%  ├─ uart_init
+       17        17        17    1.0%  ├─ digits
+       16        16        16    1.0%  ├─ SysTick_Handler
+       12        12        12    0.7%  ├─ clock_init
+        8         8         8    0.5%  ├─ [.ARM.exidx]
+        4         4         4    0.2%  ├─ boot_count
+        4         4         4    0.2%  ├─ system_core_clock
+        2         2         2    0.1%  └─ Default_Handler
