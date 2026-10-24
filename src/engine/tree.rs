@@ -240,54 +240,35 @@ impl AnalysisTree {
         self.sorted_by = key;
     }
 
-    /// A copy with only the nodes whose sizes changed from the base (and
-    /// the root). Fragments under a dropped node map to its nearest kept
-    /// ancestor.
+    /// Reverse the order of all children.
+    pub fn reverse(&mut self) {
+        for n in &mut self.nodes {
+            n.children.reverse();
+        }
+    }
+
+    /// A copy where only nodes whose sizes changed from the base are
+    /// children (the root stays). Node ids stay the same, so data keyed by
+    /// node (color labels, `leaf_of`) still applies; unchanged nodes are
+    /// just not reachable from the root.
     pub fn changed_only(&self) -> AnalysisTree {
-        let keep = |n: &Node| n.sizes != n.base;
-        let mut map: Vec<Option<NodeId>> = vec![None; self.nodes.len()];
-        let mut nodes: Vec<Node> = Vec::new();
-        // Parents come before children in the arena.
-        for (i, n) in self.nodes.iter().enumerate() {
-            let parent = n.parent.and_then(|p| map[p.0 as usize]);
-            if i != 0 && (parent.is_none() || !keep(n)) {
-                continue;
-            }
-            let id = NodeId(nodes.len() as u32);
-            map[i] = Some(id);
-            let mut copy = n.clone();
-            copy.parent = parent;
-            copy.children.clear();
-            nodes.push(copy);
+        let mut t = self.clone();
+        let changed: Vec<bool> = self.nodes.iter().map(|n| n.sizes != n.base).collect();
+        for n in &mut t.nodes {
+            n.children.retain(|c| changed[c.0 as usize]);
         }
-        for (i, n) in self.nodes.iter().enumerate() {
-            let Some(id) = map[i] else { continue };
-            nodes[id.0 as usize].children = n
-                .children
-                .iter()
-                .filter_map(|c| map[c.0 as usize])
-                .collect();
+        t
+    }
+
+    /// The nodes reachable from the root, parents before children.
+    pub fn reachable(&self) -> Vec<NodeId> {
+        let mut out = vec![Self::ROOT];
+        let mut i = 0;
+        while i < out.len() {
+            out.extend(self.children(out[i]));
+            i += 1;
         }
-        let leaf_of = self
-            .leaf_of
-            .iter()
-            .map(|&l| {
-                let mut cur = l;
-                loop {
-                    if let Some(id) = map[cur.0 as usize] {
-                        return id;
-                    }
-                    cur = self.node(cur).parent.unwrap_or(Self::ROOT);
-                }
-            })
-            .collect();
-        AnalysisTree {
-            nodes,
-            levels: self.levels.clone(),
-            sorted_by: self.sorted_by,
-            has_base: self.has_base,
-            leaf_of,
-        }
+        out
     }
 
     pub fn root(&self) -> &Node {

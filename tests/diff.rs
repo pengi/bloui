@@ -42,8 +42,7 @@ fn a_build_against_itself_has_no_changes() {
         assert_eq!(n.change(Metric::Load), Change::Same);
     }
     let changed = t.changed_only();
-    assert_eq!(changed.nodes.len(), 1);
-    assert!(changed.leaf_of.iter().all(|&l| l == AnalysisTree::ROOT));
+    assert_eq!(changed.reachable(), [AnalysisTree::ROOT]);
 }
 
 #[test]
@@ -123,13 +122,18 @@ fn changed_only_keeps_changes_and_their_parents() {
     assert!(find(&t, &[".text", "report"]).is_some());
     assert!(find(&t, &[".text", "uart_put_hex"]).is_some());
     assert!(find(&t, &[".text", "gpio_toggle"]).is_none());
-    assert!(t.nodes[1..].iter().all(|n| n.sizes != n.base));
-    for n in &t.nodes {
-        for &c in &n.children {
-            assert_eq!(t.node(c).parent.map(|p| &*t.node(p).name), Some(&*n.name));
+    let reachable = t.reachable();
+    assert!(
+        reachable[1..]
+            .iter()
+            .all(|&n| t.node(n).sizes != t.node(n).base)
+    );
+    // Ids are kept: a node's parent is still its parent.
+    for &n in &reachable {
+        for &c in t.children(n) {
+            assert_eq!(t.node(c).parent, Some(n));
         }
     }
-    assert!(t.leaf_of.iter().all(|l| (l.0 as usize) < t.nodes.len()));
 }
 
 #[test]

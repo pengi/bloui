@@ -5,13 +5,13 @@
 use crate::SharedView;
 use crate::legend::Legend;
 use crate::pipeline::PipelinePane;
-use crate::tree_view::TreeView;
+use crate::tree_view::{SortColumn, TreeView};
 use crate::treemap::{Change, Treemap};
 use crate::worker::{Output, Worker};
-use bloui::engine::{AnalysisTree, ColorLabels, StageReport, StageStatus};
+use bloui::engine::{AnalysisTree, ColorLabels, SortKey, StageReport, StageStatus};
 use bloui::model::Metric;
-use bloui::param::DimRef;
-use bloui::pipeline::History;
+use bloui::param::{DimRef, ParamValue, ParamValues};
+use bloui::pipeline::{History, StageConfig};
 use bloui::project::{Project, ViewSettings, preset};
 use bloui::registry::Registry;
 use bloui::render::ColorBy;
@@ -42,6 +42,8 @@ struct Doc {
 enum ColorChoice {
     Level(String),
     Dim(&'static str),
+    /// The change from the base build.
+    Change,
 }
 
 pub struct Window {
@@ -63,6 +65,12 @@ pub struct Window {
     updating_colors: Cell<bool>,
     legend: Rc<Legend>,
     zoom_out: gtk::Button,
+    /// With a base build: show only what changed.
+    changes_only: gtk::ToggleButton,
+    /// The tree of the last run, before sorting and "only changes".
+    result: RefCell<Option<Arc<AnalysisTree>>>,
+    /// The column the tree list is sorted by, and whether reversed.
+    sort: Cell<Option<(SortColumn, bool)>>,
     presets: gtk::MenuButton,
     /// Rerun when an input file changes.
     watch: gtk::CheckButton,
@@ -110,7 +118,19 @@ impl Window {
         let save = gtk::Button::from_icon_name("document-save-symbolic");
         save.set_tooltip_text(Some("Save the project (Ctrl+S)"));
         save.set_action_name(Some("win.save"));
+        let add = gtk::MenuButton::builder()
+            .icon_name("list-add-symbolic")
+            .tooltip_text("Add an input, or a build to compare with")
+            .build();
+        let add_menu = gio::Menu::new();
+        add_menu.append(Some("Add file…"), Some("win.add-file"));
+        add_menu.append(Some("Compare with…"), Some("win.compare"));
+        add.set_menu_model(Some(&add_menu));
+        let changes_only = gtk::ToggleButton::with_label("Only changes");
+        changes_only.set_tooltip_text(Some("Show only what changed from the base build"));
+        changes_only.set_visible(false);
         header.pack_start(&open);
+        header.pack_start(&add);
         header.pack_start(&save);
         let presets = gtk::MenuButton::builder()
             .label("Presets")
@@ -120,6 +140,7 @@ impl Window {
         header.pack_end(&labeled("Color by", &color_by));
         header.pack_end(&labeled("Metric", &metric));
         header.pack_end(&zoom_out);
+        header.pack_end(&changes_only);
         window.set_titlebar(Some(&header));
 
         let registry = Arc::new(Registry::builtin());
@@ -200,6 +221,9 @@ impl Window {
             updating_colors: Cell::new(false),
             legend,
             zoom_out,
+            changes_only,
+            result: RefCell::new(None),
+            sort: Cell::new(None),
             presets,
             watch,
             files: RefCell::new(Vec::new()),
@@ -242,6 +266,8 @@ impl Window {
             self.window.add_action(&a);
         };
         action("open", Window::open_dialog);
+        action("add-file", |w| w.add_dialog(false));
+        action("compare", |w| w.add_dialog(true));
         action("save", Window::save);
         action("save-as", Window::save_dialog);
         action("reload", |w| w.run(true));
@@ -262,6 +288,7 @@ impl Window {
         app.set_accels_for_action("win.toggle-pipeline", &["F9"]);
         app.set_accels_for_action("win.toggle-legend", &["F8"]);
         app.set_accels_for_action("win.open", &["<Control>o"]);
+        app.set_accels_for_action("win.add-file", &["<Control><Shift>o"]);
         app.set_accels_for_action("win.save", &["<Control>s"]);
         app.set_accels_for_action("win.save-as", &["<Control><Shift>s"]);
         app.set_accels_for_action("win.reload", &["F5", "<Control>r"]);
@@ -276,6 +303,22 @@ impl Window {
             if changed {
                 this.update_undo();
                 this.schedule_run();
+            }
+        });
+
+        let weak = Rc::downgrade(self);
+        self.tree.connect_sort(move |sort| {
+            if let Some(this) = weak.upgrade() {
+                this.sort.set(sort);
+                this.display();
+            }
+        });
+
+        let weak = Rc::downgrade(self);
+        self.changes_only.connect_toggled(move |_| {
+            if let Some(this) = weak.upgrade() {
+                this.display();
+                this.update_legend();
             }
         });
 
@@ -397,13 +440,12 @@ impl Window {
             let Ok(list) = value.get::<gdk::FileList>() else {
                 return false;
             };
-            match list.files().first().and_then(|f| f.path()) {
-                Some(path) => {
-                    this.open(&path);
-                    true
-                }
-                None => false,
+            let paths: Vec<PathBuf> = list.files().iter().filter_map(|f| f.path()).collect();
+            if paths.is_empty() {
+                return false;
             }
+            this.drop_files(&paths);
+            true
         });
         self.window.add_controller(drop);
     }
@@ -467,6 +509,7 @@ impl Window {
         if let Some(c) = &view.color_by {
             let choice = match self.registry.dimension(c) {
                 Some(d) => ColorChoice::Dim(d.id()),
+                None if c == "change" => ColorChoice::Change,
                 None => ColorChoice::Level(c.clone()),
             };
             self.color_choice.replace(choice);
@@ -479,6 +522,7 @@ impl Window {
             ColorChoice::Level(name) if name.is_empty() => None,
             ColorChoice::Level(name) => Some(name.clone()),
             ColorChoice::Dim(id) => Some((*id).to_owned()),
+            ColorChoice::Change => Some("change".to_owned()),
         };
         ViewSettings {
             metric: Some(self.selected_metric()),
@@ -763,7 +807,7 @@ impl Window {
         let metric = self.selected_metric();
         let color = match &*self.color_choice.borrow() {
             ColorChoice::Dim(id) => Some(DimRef::new(id)),
-            ColorChoice::Level(_) => None,
+            ColorChoice::Level(_) | ColorChoice::Change => None,
         };
         let worker = self.worker.clone();
         let weak = Rc::downgrade(self);
@@ -782,13 +826,9 @@ impl Window {
         self.files.replace(out.files);
         self.update_monitors();
         self.colors.replace(out.colors);
-        let metric = self.selected_metric();
-        let tree = if out.tree.sorted_by == bloui::engine::SortKey::Size(metric) {
-            out.tree
-        } else {
-            resorted(&out.tree, metric)
-        };
-        self.set_tree(tree);
+        self.changes_only.set_visible(out.tree.has_base);
+        self.result.replace(Some(out.tree));
+        self.display();
         self.update_color_items();
         self.apply_color();
         self.update_notes();
@@ -796,7 +836,9 @@ impl Window {
         self.stack.set_visible_child_name("content");
     }
 
-    fn set_tree(&self, tree: Arc<AnalysisTree>) {
+    /// Show a tree in the treemap and, or as `list`, in the tree list
+    /// (same node ids).
+    fn set_tree(&self, tree: Arc<AnalysisTree>, list: Arc<AnalysisTree>) {
         let metric = self.selected_metric();
         {
             let mut view = self.view.borrow_mut();
@@ -806,19 +848,40 @@ impl Window {
             }
             view.as_mut().unwrap().metric = metric;
         }
-        self.tree.set_tree(&tree, metric);
+        self.tree.set_tree(&list, metric);
         self.tree.select(self.with_view(|v| v.selected()).flatten());
         self.treemap.queue_draw();
         self.update_status();
     }
 
     fn metric_changed(&self) {
-        let Some(tree) = self.with_view(|v| v.tree().clone()) else {
-            return;
-        };
-        self.set_tree(resorted(&tree, self.selected_metric()));
+        self.display();
         self.update_pipeline_pane();
         self.update_legend();
+    }
+
+    /// Show the last result, sorted as chosen. With a base build and "Only
+    /// changes", the list shows only what changed; the treemap always
+    /// shows the whole current build.
+    fn display(&self) {
+        let Some(result) = self.result.borrow().clone() else {
+            return;
+        };
+        let metric = self.selected_metric();
+        let mut tree = (*result).clone();
+        let (column, reversed) = self.sort.get().unwrap_or((SortColumn::Size, false));
+        tree.sort_by(match column {
+            SortColumn::Name => SortKey::Name,
+            SortColumn::Size => SortKey::Size(metric),
+            SortColumn::Delta => SortKey::Delta(metric),
+        });
+        if reversed {
+            tree.reverse();
+        }
+        let list =
+            (tree.has_base && self.changes_only.is_active()).then(|| Arc::new(tree.changed_only()));
+        let tree = Arc::new(tree);
+        self.set_tree(tree.clone(), list.unwrap_or(tree));
     }
 
     fn update_pipeline_pane(&self) {
@@ -841,6 +904,9 @@ impl Window {
             .iter()
             .map(|l| ColorChoice::Level(l.name.clone()))
             .collect();
+        if tree.has_base {
+            items.push(ColorChoice::Change);
+        }
         items.extend(
             self.registry
                 .dimensions
@@ -858,6 +924,7 @@ impl Window {
                     let name = self.registry.dimension(id).map_or(*id, |d| d.name());
                     format!("dimension: {name}")
                 }
+                ColorChoice::Change => "change from the base".to_owned(),
             })
             .collect();
         let labels: Vec<&str> = labels.iter().map(String::as_str).collect();
@@ -892,6 +959,8 @@ impl Window {
                 Some(Ok(labels)) => ColorBy::Labels(labels.clone()),
                 _ => ColorBy::Level(0),
             },
+            ColorChoice::Change if tree.has_base => ColorBy::Change,
+            ColorChoice::Change => ColorBy::Level(0),
         };
         self.treemap.set_color(color);
         self.update_legend();
@@ -1005,6 +1074,93 @@ impl Window {
         });
     }
 
+    /// Add inputs (or, with `base`, a build to compare with) to the
+    /// pipeline.
+    fn add_dialog(self: &Rc<Self>, base: bool) {
+        let title = if base {
+            "Compare with a build"
+        } else {
+            "Add input files"
+        };
+        let dialog = gtk::FileDialog::builder().title(title).build();
+        let weak = Rc::downgrade(self);
+        dialog.open_multiple(Some(&self.window), None::<&gio::Cancellable>, move |res| {
+            let (Some(this), Ok(files)) = (weak.upgrade(), res) else {
+                return;
+            };
+            let paths: Vec<PathBuf> = (0..files.n_items())
+                .filter_map(|i| files.item(i).and_downcast::<gio::File>())
+                .filter_map(|f| f.path())
+                .collect();
+            this.add_inputs(&paths, base);
+        });
+    }
+
+    /// Dropped files: a project opens; inputs are added to the open
+    /// pipeline, or the first one opens if there is none.
+    fn drop_files(self: &Rc<Self>, paths: &[PathBuf]) {
+        let empty = self.doc.borrow().history.current().stages.is_empty();
+        match paths {
+            [first, rest @ ..] if empty || bloui::project::is_project(first) => {
+                self.open(first);
+                let inputs: Vec<PathBuf> = rest
+                    .iter()
+                    .filter(|p| !bloui::project::is_project(p))
+                    .cloned()
+                    .collect();
+                self.add_inputs(&inputs, false);
+            }
+            _ => self.add_inputs(paths, false),
+        }
+    }
+
+    /// Add `open-file` stages after the last input; with `base`, as the
+    /// build to compare with (and color by change).
+    fn add_inputs(self: &Rc<Self>, paths: &[PathBuf], base: bool) {
+        if paths.is_empty() {
+            return;
+        }
+        if self.doc.borrow().history.current().stages.is_empty() {
+            if base {
+                self.error("Nothing to compare", "Open the current build first.");
+            } else {
+                self.drop_files(paths);
+            }
+            return;
+        }
+        let pipeline = {
+            let mut doc = self.doc.borrow_mut();
+            let mut p = doc.history.current().clone();
+            let at = p
+                .stages
+                .iter()
+                .rposition(|s| s.id == "open-file")
+                .map_or(0, |i| i + 1);
+            for (k, path) in paths.iter().enumerate() {
+                let path = std::path::absolute(path).unwrap_or_else(|_| path.clone());
+                let mut params = ParamValues::new().with(
+                    "path",
+                    ParamValue::Text(path.to_string_lossy().into_owned()),
+                );
+                if base {
+                    params.set("role", ParamValue::Text("base".into()));
+                }
+                p.stages
+                    .insert(at + k, StageConfig::new("open-file", params));
+            }
+            if !doc.history.edit(p, None) {
+                return;
+            }
+            doc.history.current().clone()
+        };
+        if base {
+            self.color_choice.replace(ColorChoice::Change);
+        }
+        self.pipeline.set_pipeline(&pipeline);
+        self.update_undo();
+        self.schedule_run();
+    }
+
     fn save(self: &Rc<Self>) {
         let project = self.doc.borrow().project.clone();
         match project {
@@ -1062,13 +1218,6 @@ impl Window {
             }
         }
     }
-}
-
-/// A copy of the tree, sorted by `metric`.
-fn resorted(tree: &Arc<AnalysisTree>, metric: Metric) -> Arc<AnalysisTree> {
-    let mut t = (**tree).clone();
-    t.sort(metric);
-    Arc::new(t)
 }
 
 fn labeled(text: &str, widget: &impl IsA<gtk::Widget>) -> gtk::Box {

@@ -13,8 +13,11 @@ next to `fw.elf` is found automatically) the memory-region and free-space
 stages are skipped; the status bar then says "2 notes", and its tooltip
 says why. A project file brings its own pipeline (see
 [project files](project-files.md)). Opening another file replaces the
-current one. Either way, the pipeline can then be changed in the
-pipeline pane, and the result follows every change.
+current one; **+** in the header bar adds files to the open pipeline
+instead (Ctrl+Shift+O), or a build to compare with (see [Diffs](#diffs)).
+Dropping files on an open pipeline adds them; a dropped project opens.
+Either way, the pipeline can then be changed in the pipeline pane, and
+the result follows every change.
 
 ## Layout
 
@@ -40,7 +43,8 @@ pipeline pane, and the result follows every change.
   same color whichever way it is chosen.
 - **Tree list**: name, size in the chosen metric, percentage of the total,
   a bar with the share of the parent, the number of fragments, and the
-  lowest runtime address.
+  lowest runtime address. Click a column header (name, size, Δ) to sort
+  by it; click again to reverse.
 - **Treemap**: cushion treemap of the tree, or of the zoomed-in node.
 - **Legend** (right of the tree list, F8 hides it): the labels of the
   colors under the zoomed-in node, biggest first, with their sizes (the
@@ -53,6 +57,24 @@ pipeline pane, and the result follows every change.
   (the default), the result is redone when an input or linker map
   changes on disk, half a second after the last write. Its tooltip lists
   the watched files. F5 reloads by hand.
+
+## Diffs
+
+**+ › Compare with…** adds a build to compare with (an `open-file` stage
+with role "base"): the tree and the treemap still show the current
+build, and the base gives the changes:
+
+- The tree list gets **Base**, **Δ** and **Δ%** columns. Names and
+  changes are colored: grown red, shrunk green, new orange, removed blue
+  and struck through (removed things stay in the list with size 0).
+- **Color by** gets "change from the base" (chosen when a base is
+  added): the same colors on the tiles, fading for small relative
+  changes; unchanged tiles are grey. The legend sums the changes per
+  kind.
+- **Only changes** (header bar) hides the unchanged rows in the list;
+  the treemap keeps showing the whole build.
+- Sorting by **Δ** puts the biggest changes, either way, first.
+- The status bar adds the base size and the change.
 
 ## Mouse and keys
 

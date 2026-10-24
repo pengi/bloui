@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 //! The tree list: a `ColumnView` over a lazy `TreeListModel` of nodes.
 
-use bloui::engine::{AnalysisTree, NodeId};
+use bloui::engine::{AnalysisTree, Change, NodeId};
 use bloui::model::{Metric, human};
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
@@ -59,6 +59,26 @@ impl NodeObject {
         share(self.size(), tree.node(parent).sizes.get(*metric))
     }
 
+    fn change(&self) -> Change {
+        let (tree, id, metric) = self.data();
+        tree.node(*id).change(*metric)
+    }
+
+    /// The CSS class for the node's change, for a diff.
+    fn change_class(&self) -> Option<&'static str> {
+        let (tree, _, _) = self.data();
+        if !tree.has_base {
+            return None;
+        }
+        match self.change() {
+            Change::Same => None,
+            Change::Grown => Some("bloui-grown"),
+            Change::Shrunk => Some("bloui-shrunk"),
+            Change::New => Some("bloui-new"),
+            Change::Removed => Some("bloui-removed"),
+        }
+    }
+
     fn share_of_total(&self) -> f64 {
         let (tree, _, metric) = self.data();
         share(self.size(), tree.root().sizes.get(*metric))
@@ -88,8 +108,30 @@ fn node_of(row: &gtk::TreeListRow) -> Option<NodeObject> {
     row.item().and_downcast()
 }
 
+/// What the tree is sorted by, from a click on a column header.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SortColumn {
+    Name,
+    Size,
+    Delta,
+}
+
+const CHANGE_CLASSES: [&str; 4] = ["bloui-grown", "bloui-shrunk", "bloui-new", "bloui-removed"];
+
+fn set_change_class(widget: &impl IsA<gtk::Widget>, class: Option<&str>) {
+    for c in CHANGE_CLASSES {
+        widget.remove_css_class(c);
+    }
+    if let Some(c) = class {
+        widget.add_css_class(c);
+    }
+}
+
 pub struct TreeView {
     pub widget: gtk::ScrolledWindow,
+    view: gtk::ColumnView,
+    /// Base, Δ and Δ%: shown when comparing with a base build.
+    diff_columns: Vec<gtk::ColumnViewColumn>,
     selection: gtk::SingleSelection,
     model: RefCell<Option<(Arc<AnalysisTree>, gtk::TreeListModel)>>,
     /// Set while the selection is changed from outside.
@@ -105,8 +147,58 @@ impl TreeView {
         view.set_reorderable(false);
         view.add_css_class("data-table");
 
-        view.append_column(&name_column());
-        view.append_column(&text_column("Size", 1.0, |n| human(n.size())));
+        let css = gtk::CssProvider::new();
+        css.load_from_string(
+            ".bloui-grown { color: #d9483b; } .bloui-shrunk { color: #3fa84c; } \
+             .bloui-new { color: #f07a1a; } \
+             .bloui-removed { color: #3b6fe0; text-decoration-line: line-through; }",
+        );
+        if let Some(display) = gtk::gdk::Display::default() {
+            gtk::style_context_add_provider_for_display(
+                &display,
+                &css,
+                gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+            );
+        }
+
+        // Headers are clickable; the window sorts the tree itself.
+        let sortable = |col: &gtk::ColumnViewColumn, id: &str| {
+            col.set_id(Some(id));
+            col.set_sorter(Some(&gtk::CustomSorter::new(|_, _| gtk::Ordering::Equal)));
+        };
+        let name = name_column();
+        sortable(&name, "name");
+        view.append_column(&name);
+        let size = text_column("Size", 1.0, |n| human(n.size()));
+        sortable(&size, "size");
+        view.append_column(&size);
+        let base = text_column("Base", 1.0, |n| {
+            let (tree, id, metric) = n.data();
+            human(tree.node(*id).base.get(*metric))
+        });
+        let delta = text_column("Δ", 1.0, |n| {
+            let (tree, id, metric) = n.data();
+            match tree.node(*id).delta(*metric) {
+                0 => "0".into(),
+                d if d > 0 => format!("+{}", human(d as u64)),
+                d => format!("-{}", human(d.unsigned_abs())),
+            }
+        });
+        sortable(&delta, "delta");
+        let delta_pct = text_column("Δ%", 1.0, |n| {
+            let (tree, id, metric) = n.data();
+            let node = tree.node(*id);
+            match (node.base.get(*metric), node.change(*metric)) {
+                (_, Change::New) => "new".into(),
+                (_, Change::Same) => String::new(),
+                (b, _) => format!("{:+.1}", node.delta(*metric) as f64 * 100.0 / b as f64),
+            }
+        });
+        let diff_columns = vec![base, delta, delta_pct];
+        for c in &diff_columns {
+            c.set_visible(false);
+            view.append_column(c);
+        }
         view.append_column(&text_column("%", 1.0, |n| {
             format!("{:.1}", n.share_of_total() * 100.0)
         }));
@@ -129,6 +221,8 @@ impl TreeView {
             .build();
         Rc::new(TreeView {
             widget,
+            view,
+            diff_columns,
             selection,
             model: RefCell::new(None),
             syncing: Cell::new(false),
@@ -138,6 +232,9 @@ impl TreeView {
     /// Show a new tree. Rows that were expanded stay expanded where the
     /// same path exists.
     pub fn set_tree(&self, tree: &Arc<AnalysisTree>, metric: Metric) {
+        for c in &self.diff_columns {
+            c.set_visible(tree.has_base);
+        }
         let expanded = self.expanded_paths();
         let root = gio::ListStore::new::<NodeObject>();
         root.append(&NodeObject::new(tree, AnalysisTree::ROOT, metric));
@@ -217,9 +314,8 @@ impl TreeView {
         match pos {
             Some(p) => {
                 self.selection.set_selected(p);
-                if let Some(view) = self.widget.child().and_downcast::<gtk::ColumnView>() {
-                    view.scroll_to(p, None, gtk::ListScrollFlags::NONE, None);
-                }
+                self.view
+                    .scroll_to(p, None, gtk::ListScrollFlags::NONE, None);
             }
             None => self.selection.set_selected(gtk::INVALID_LIST_POSITION),
         }
@@ -243,13 +339,31 @@ impl TreeView {
         });
     }
 
-    /// Called on a double-click or Enter on a row.
-    pub fn connect_activate(self: &Rc<Self>, f: impl Fn(NodeId) + 'static) {
-        let Some(view) = self.widget.child().and_downcast::<gtk::ColumnView>() else {
+    /// Called when a column header is clicked: the column, and whether
+    /// the order is reversed (the second click). `None`: back to sizes.
+    pub fn connect_sort(&self, f: impl Fn(Option<(SortColumn, bool)>) + 'static) {
+        let Some(sorter) = self.view.sorter().and_downcast::<gtk::ColumnViewSorter>() else {
             return;
         };
+        sorter.connect_changed(move |s, _| {
+            let column =
+                s.primary_sort_column()
+                    .and_then(|c| c.id())
+                    .and_then(|id| match id.as_str() {
+                        "name" => Some(SortColumn::Name),
+                        "size" => Some(SortColumn::Size),
+                        "delta" => Some(SortColumn::Delta),
+                        _ => None,
+                    });
+            let reversed = s.primary_sort_order() == gtk::SortType::Descending;
+            f(column.map(|c| (c, reversed)));
+        });
+    }
+
+    /// Called on a double-click or Enter on a row.
+    pub fn connect_activate(self: &Rc<Self>, f: impl Fn(NodeId) + 'static) {
         let this = Rc::downgrade(self);
-        view.connect_activate(move |_, pos| {
+        self.view.connect_activate(move |_, pos| {
             let Some(this) = this.upgrade() else { return };
             let model = this.model.borrow();
             let node = model
@@ -278,6 +392,7 @@ fn name_column() -> gtk::ColumnViewColumn {
         let label = gtk::Label::builder()
             .xalign(0.0)
             .ellipsize(gtk::pango::EllipsizeMode::Middle)
+            .width_chars(16)
             .build();
         let expander = gtk::TreeExpander::new();
         expander.set_child(Some(&label));
@@ -296,6 +411,7 @@ fn name_column() -> gtk::ColumnViewColumn {
             let name = &tree.node(*id).name;
             label.set_text(name);
             label.set_tooltip_text(Some(name));
+            set_change_class(&label, node.change_class());
         }
     });
     let col = gtk::ColumnViewColumn::new(Some("Name"), Some(factory));
@@ -309,6 +425,8 @@ fn text_column(
     xalign: f32,
     text: impl Fn(&NodeObject) -> String + 'static,
 ) -> gtk::ColumnViewColumn {
+    // The change columns are colored like the names.
+    let colored = title.starts_with('Δ');
     let factory = gtk::SignalListItemFactory::new();
     factory.connect_setup(move |_, item| {
         let li = item.downcast_ref::<gtk::ListItem>().unwrap();
@@ -320,6 +438,9 @@ fn text_column(
         if let Some((li, node)) = item_node(item) {
             let label = li.child().and_downcast::<gtk::Label>().unwrap();
             label.set_text(&text(&node));
+            if colored {
+                set_change_class(&label, node.change_class());
+            }
         }
     });
     let col = gtk::ColumnViewColumn::new(Some(title), Some(factory));

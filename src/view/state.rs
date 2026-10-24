@@ -164,6 +164,17 @@ impl ViewState {
         if total > 0 {
             s.push_str(&format!(" ({:.1}%)", size as f64 * 100.0 / total as f64));
         }
+        if self.tree.has_base {
+            let base = n.base.get(self.metric);
+            let delta = n.delta(self.metric);
+            let what = match n.change(self.metric) {
+                crate::engine::Change::New => "new".to_owned(),
+                crate::engine::Change::Removed => "removed".to_owned(),
+                crate::engine::Change::Same => "unchanged".to_owned(),
+                _ => format!("{delta:+} bytes"),
+            };
+            s.push_str(&format!("   base {base}: {what}"));
+        }
         if let Some(a) = n.vma {
             s.push_str(&format!("   {a:#x}"));
         }
